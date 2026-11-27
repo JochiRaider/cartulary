@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is proposed and awaits D35 to D41. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1396,6 +1396,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P4-7 | Segments for the `ci`-only rows; two paired `check` runs; five `ci` runs, three failed and then the passing pair; five defects fixed: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and the cleanup-test races (`e02cece8b`), admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`), and a fixed 30 s Go parse timeout (`0cd0e8dc8`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136`; `p48-check01`, `p48-check02`, `p48-ci01`; `p138`; `p49-ci01`, `p49-ci02` | Pass. `p48` passed all 1,899 rows in 520 s graphs; `p49` passed all 2,652 rows in 1,328 s and 1,361 s graphs. Section 3 refreshed (13.16) |
 | 2026-11-27 | P4-7 follow-up | Admitted Timeline mention operations and capture and mention preparation survive presentation detachment and sheet switches (`02ba63702`) | `p140`, `p141`, `p142` (segment), `p143`, `p144` | Pass. 32 targeted rows, lint, types, boundaries, generated and catalog checks (13.17) |
 | 2026-11-27 | Phase 6 plan | Traced the five Phase 5 residuals and proposed Phase 6 (P6-0 to P6-6, G48 to G52, D30 to D34) | `p147` (startup timing), registry and work-graph scans | Proposed; awaiting the owner's decisions (15.5) |
+| 2026-11-27 | Phase 7 plan | Traced the two Phase 6 residuals (run-root size, wall-time margin) and proposed Phase 7 (P7-0 to P7-6, G56 to G63, D35 to D41) | `p6-6-check02`, `p6-6-ci04`, `p7-0-psi-check` (host pressure, disk and PostgreSQL size sampling) | Proposed; awaiting the owner's decisions (16.5) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -5890,3 +5891,372 @@ basic diagnostics, cache off, sequential).
     changes. That is the price of an exact key.
   - Follow-up noted in 15.7: 31 assurance operations still strip
     `CARTULARY_TEST_TARGET`, `VERBOSE` and `CI_VERBOSE` for test isolation.
+
+## 16. Phase 7 Plan — Run-Root Size and Wall-Time Margin
+
+Status: proposed 2026-11-27 at the owner's request. Awaiting D35 to D41
+(16.5). It addresses the two residuals of Phase 6's handoff (15.11):
+
+- `check` is at its 500 s target with no margin, and `ci` (about 1,320 s)
+  misses the 1,200 s G31 target;
+- run roots are about 320 MB for `check` and 790 MB for `ci`, against
+  150 MB.
+
+### 16.1 Findings
+
+Evidence: `p6-6-check02`, `p6-6-ci04` and a sampled `check`
+(`p7-0-psi-check`, 496 s graph). The sampled run recorded host CPU, I/O and
+memory pressure, disk writes and the PostgreSQL data size of every live
+generation.
+
+- **Run-root composition.**
+
+  | Part | `check` | `ci` |
+  | --- | ---: | ---: |
+  | `unit-events.ndjson` | 257 MB | 512 MB |
+  | Browser cohort reports (`playwright-report.json` and `playwright-checkpoint.json`) | — | about 120 MB |
+  | Fixture materializations at the root's top level | 0.9 MB (38 dirs) | 38 MB (91 dirs) |
+  | `diagnostics/` (resource samples 19 MB in `ci`) | 11 MB | 24 MB |
+  | Raw Fallow reports (`dupes.json`, `health.json`) | — | 19 MB |
+  | Everything else | about 50 MB | about 75 MB |
+
+- **The event log is wait churn.** 99% of its bytes are `wait_started` and
+  `wait_ended`: 136,794 pairs in `check` (368 per unit), 232,459 in `ci`.
+  - REQ-371 opens a new segment whenever the blocking unit IDs change, and
+    every segment carries the full blocker list. A waiting unit therefore
+    restarts its segment about every 300 ms, whenever any holder finishes.
+  - Segmenting on reason and blocking resources would keep 18% of the
+    segments. Segmenting on reason alone keeps 725 in `check` and 1,268 in
+    `ci`, so the log would be about 3 MB and 5 MB.
+- **Post-graph time scales with root bytes.** `check` spends 11–12 s
+  outside the graph and `ci` 27–30 s; both are about 27 MB/s of retained
+  root. The runtime's own closing phases take 4 s, so the rest is inferred
+  to be the retained-root secret scan, which reads every byte. A shrunk root
+  removes most of it.
+- **`check` is bound by PostgreSQL, and PostgreSQL by the disk.**
+  - 122 PostgreSQL units hold 3,686 unit-seconds; eight generation slots
+    make that about 461 s, close to the 493–505 s wall. The ten heaviest
+    units are 50% of it. All eight slots are busy for the whole run (7.5 on
+    average); compile, link and setup are only 6% of unit time.
+  - In the last third of the run, CPU pressure is 0.2% and seven of 19 CPU
+    tokens are claimed, while I/O full pressure rises to 6.8%.
+  - The run wrote 68 GB to the virtual disk (137 MB/s), which was busy 85% of
+    the time. PostgreSQL containers wrote 41.8 GB of it. 67 generations
+    lived 12 to 230 s each, and each grew to 1–3 GB.
+  - Live PostgreSQL data peaked at 9.5 GB across generations (2.8 GB for the
+    largest), and available memory fell to 12.3 GB of 31 GB.
+  - P4-1 found that ten generations gained nothing over eight, so adding
+    slots does not help while the disk is the limit.
+- **`ci` is bound by browser lanes, and its browser chain starts late.**
+  - 26 browser cohorts hold 4,376 unit-seconds; four lanes make that about
+    1,094 s.
+  - 23 cohorts are eligible at 14 s but start at 180 to 195 s. Long Go and
+    PostgreSQL units admitted at 6 to 9 s hold the object-store lanes, CPU
+    and generations they need for up to 244 s. G31's reservation covers only
+    units that are already waiting. Starting the cohorts at 14 s would make
+    `ci` about 1,145 s.
+  - `build_operator`, a 1 s unit that three cohorts need, waited 135 s for a
+    CPU token.
+  - Lanes default to 4 (maximum 6). `ci` claims 14.3 of 19 CPU tokens on
+    average, nine in its last third, and at most 8 GB of memory.
+- **Success-path bulk.**
+  - Each browser cohort keeps both the Playwright report and its checkpoint.
+    The checkpoint is the reporter's crash fallback and duplicates a report
+    that parsed.
+  - Raw Playwright reports are diagnostic-only and secret-bearing (the
+    artifact table). The spec requires raw Fallow JSON to be retained as
+    artifacts on success.
+  - Network Flow fixture comparisons copy their committed inputs into
+    `<run>/NF-FIX-…` at the root's top level. The artifact table places them
+    under the target's run root.
+
+### 16.2 Gaps
+
+| Gap | Summary | Areas | Priority |
+| --- | --- | --- | --- |
+| G56 | Wait segments restart on every change of blocking holders and carry the full holder list: 99% of the event log | Specification, implementation, schemas, tests | High |
+| G57 | Successful runs retain raw diagnostic bulk: duplicate Playwright checkpoints, raw Playwright and Fallow reports | Specification, implementation, tests | High |
+| G58 | Fixture materializations land at the run root's top level and keep copies of committed inputs; the top level is an open namespace | Specification, implementation, tests | Medium |
+| G59 | Post-graph time grows with retained bytes, so large roots slow every command | Implementation, measurement | Medium (mostly solved by G56 to G58) |
+| G60 | Long units admitted before the critical browser chain is eligible starve it for about 170 s; reservation covers waiting units only | Specification, implementation, tests | High |
+| G61 | Browser lane capacity is a fixed default of 4 with CPU and memory headroom | Measurement, machine inputs, specification | Medium |
+| G62 | Harness PostgreSQL data lives on the virtual disk, which bounds `check` and the Go phase of `ci` | Specification, implementation, tests, machine inputs | High |
+| G63 | The everyday metric, a `check` after a localized change, has not been measured since 2026-11-25 | Measurement | Low |
+
+#### G56 Wait-segment churn
+
+- **Remediation.** The canonical stream records a wait as segments that
+  change only when the wait reason changes. Each `wait_ended` carries
+  bounded attribution computed in the scheduler, rather than one segment per
+  holder change:
+  - the blocked duration per logical resource during the segment;
+  - the eight holder units with the most overlap, and their overlap times.
+
+  Unit event schema v5 replaces v4 (a cutover; v4 runs stay historical,
+  Section 3 rule 3). The full holder timeline, if ever needed, is an optional
+  diagnostic rather than canonical evidence.
+- **Areas.** REQ-371 and REQ-372 amendment; the scheduler (`engine.go`) and
+  the canonical validators in Go and Node (`canonical.go`,
+  `canonical-unit-events.mjs`); critical path, live observation and the
+  performance explanation; schemas and generated validators; tests.
+- **Rationale.** A wait's meaning is its reason and duration, plus what it
+  was blocked on. The holders at each moment are scheduler internals that
+  the spec already tells reducers to compact. Recording them as segment
+  boundaries turns every completion into an event for every waiter: O(units
+  × completions).
+- **Long-term benefit.** The event log grows with units, not with their
+  square. Readers stream it cheaply, and attribution keeps its explanatory
+  value.
+- **Compatibility and migration.** It needs a schema cutover with every
+  reader updated in one step. Retained v4 runs keep validating under v4
+  readers until they age out.
+- **Risks if unresolved.** Roots grow quadratically with graph size and the
+  secret scan with them. Every reader pays for 280,000 lines it reduces
+  away.
+- **Validation.**
+  - Every partition invariant of REQ-371 still holds on real runs.
+  - The event log is ≤ 10 MB for `check` and ≤ 20 MB for `ci`.
+  - Critical path, queue duration and resource-blocked totals match the v4
+    reduction of the same run within rounding.
+  - The performance explanation still names the top blockers.
+
+#### G57 Raw diagnostic bulk on success
+
+- **Remediation.** Retention follows the outcome:
+  - successful units keep normalized evidence (row results, summaries,
+    bounded reports);
+  - raw tool output is kept for failures and for an explicit diagnostic
+    request.
+
+  In detail:
+  - the Playwright checkpoint is removed once the final report parses, and
+    is kept only when it was needed;
+  - raw Playwright reports and raw Fallow JSON, SARIF and Markdown are kept
+    for failed units, or when `HARNESS_DIAGNOSTICS=basic` asks for raw
+    diagnostics;
+  - bounded summaries, such as the Fallow static summary and its totals,
+    stay in every run.
+- **Areas.** The artifact table and the Fallow output paragraph (line 4648);
+  the browser group runner and cohort reporter; the Fallow tool; the
+  retained-root validators.
+- **Rationale.** Rule 2 of Section 3 already says retained data must earn its
+  bytes. Raw Playwright reports are secret-bearing, so keeping fewer of them
+  also shrinks the redaction surface.
+- **Long-term benefit.** `ci` roots stop growing with browser and analysis
+  volume. Failures keep everything needed to diagnose them.
+- **Compatibility and migration.** Any reader that expects raw reports on
+  success has to be found and changed first; the inventory comes before the
+  change.
+- **Risks if unresolved.** About 140 MB per `ci`, much of it secret-bearing
+  and duplicated.
+- **Validation.**
+  - A passing `ci` retains no checkpoint and no raw Playwright or Fallow
+    report.
+  - A forced failure of each producer keeps its raw output.
+  - Every retained-evidence reader passes on both.
+
+#### G58 Fixture materializations and the run-root namespace
+
+- **Remediation.**
+  - One materialization owner for Network Flow fixtures in Go and Node
+    places each copy under `<run>/<target>/fixtures/<fixture_id>/`.
+  - On success only its comparison summary is kept; the full materialization
+    is kept on failure.
+  - The run root's top level becomes a closed set that the retained-root
+    validation enforces.
+- **Areas.** The artifact table; the Network Flow fixture support
+  (`tools/harness/fixtures/network-flow.mts` and the Go comparisons); the
+  retained-root validator; tests.
+- **Rationale.** The inputs are committed and digest-pinned, so copying them
+  into every run proves nothing. A closed top level stops new producers from
+  scattering private directories.
+- **Long-term benefit.** A predictable root layout that readers and cleanup
+  can rely on.
+- **Compatibility and migration.** Fixture paths move within the run root;
+  their readers follow.
+- **Risks if unresolved.** 38 MB per `ci` today, and growing with every
+  fixture.
+- **Validation.**
+  - A passing `ci` root has only declared top-level entries.
+  - A failing fixture comparison keeps its materialization.
+
+#### G59 Post-graph time
+
+- **Remediation.**
+  - Measure the split of post-graph time (secret scan, publication, Make)
+    after G56 to G58.
+  - If either command still spends more than 15 s, scan each artifact when
+    it is published rather than the whole root at the end. Publication
+    already owns atomic writes, so it can own the scan record too.
+- **Areas.** Measurement first; the publication owner and the retained scan
+  only if needed.
+- **Rationale.** A full rescan duplicates the reads of publication. The
+  measurement decides whether that matters once roots are small.
+- **Long-term benefit.** Command overhead stays flat as runs grow.
+- **Compatibility and migration.** None unless the second step runs.
+- **Risks if unresolved.** 30 s on every `ci`.
+- **Validation.** `check` and `ci` each spend ≤ 15 s outside the graph.
+
+#### G60 The critical browser chain starts late
+
+- **Remediation.** Extend REQ-802's reservation with a bounded look-ahead.
+  - Consider a unit on the plan's critical path that is not yet eligible,
+    but all of whose unfinished needs are running.
+  - Its claims count as reserved against any admission whose estimated
+    runtime would outlast the needs' expected completion.
+  - The look-ahead covers a horizon such as 60 s (D39), and work that fits
+    its own estimate is still admitted.
+  - Estimates come from the existing per-unit estimates.
+- **Areas.** REQ-802 amendment; the scheduler; engine tests for the
+  look-ahead and its horizon; one diagnostic `ci`.
+- **Rationale.** The critical path is known before the run starts. Admitting
+  a 244 s unit at 7 s that blocks a lane the critical chain needs at 14 s is
+  the ordering error that G31 fixed for waiting units.
+- **Long-term benefit.** The browser phase begins when its prerequisites end,
+  and the rule applies to any future critical chain.
+- **Compatibility and migration.** It changes no interface; plans are
+  unchanged and only admission order differs.
+- **Risks if unresolved.** About 170 s of every `ci`.
+- **Validation.**
+  - The first browser cohort starts within 10 s of its eligibility.
+  - `ci` ≤ 1,200 s on a pair.
+  - `check` is unchanged within ±30 s.
+  - Browser runner time grows ≤ 15%.
+
+#### G61 Browser lane capacity
+
+- **Remediation.**
+  - Measure five and six lanes (the policy's maximum) after G60, on paired
+    `ci` runs.
+  - Adopt a higher default only through a gate: wall gain, per-cohort time
+    growth ≤ 15%, no load-dependent failure, and peak available memory
+    ≥ 4 GB.
+- **Areas.** Measurement; the browser lane policy and the spec's capacity
+  table if adopted.
+- **Rationale.** Four lanes were chosen before G30 to G32 and G60 changed
+  how the host is shared. The measured headroom is CPU in the last third and
+  memory throughout.
+- **Long-term benefit.** The lane count matches the host as measured, not as
+  it was.
+- **Compatibility and migration.** `BROWSER_LANES` already selects up to 6.
+- **Risks if unresolved.** The browser phase stays about 1,090 s.
+- **Validation.** The gate above on two `ci` runs per setting.
+
+#### G62 PostgreSQL storage on the virtual disk
+
+- **Remediation.** Broker-owned PostgreSQL generations keep their data
+  directory in memory (tmpfs) instead of an anonymous Docker volume. Every
+  durability setting stays as it is: `fsync`, full-page writes, synchronous
+  commit, checksums, `wal_compression` and normal checkpoints. Only the
+  medium changes.
+  - The seed image's data directory is copied into the tmpfs when a
+    generation starts; Docker does not fill a tmpfs mount from the image.
+    The copy is 75 MB.
+  - Each generation's tmpfs has a size cap, for example 4 GiB against the
+    observed 2.8 GiB peak. Its resident memory claim rises from 256 MB to
+    that cap, so host admission bounds live generations by memory, and the
+    `volume` claim goes.
+  - Seed builders and explicit lifecycle owners (`postgres_migration`,
+    process and recovery suites that stop or restart clusters) stay on disk.
+    No test restarts a broker generation's container, which a tmpfs would not
+    survive.
+  - The adoption gate: `check` wall and PostgreSQL unit work, minimum
+    available memory ≥ 4 GB, no OOM or memory-pressure events, and the
+    suite's acceptance (REQ-804's durable WAL progress and template/clone
+    isolation) passing unchanged.
+  - If the gate passes, eight versus ten generations is re-measured, since
+    the disk limit that made ten useless is gone.
+- **Areas.** The REQ-804 and clone paragraphs (they say the harness
+  "preserves `fsync`, full-page writes, synchronous commit…"); the
+  provisioning identity, since the storage medium keys seed images; the
+  `pgtest` owned-cluster start; physical resource claims in the topology;
+  tests.
+- **Rationale.** The disk is the measured limit: 41.8 GB of PostgreSQL writes
+  per `check`, an 85%-busy disk, and idle CPU in the tail. G28 already moved
+  Go test temporary work to RAM on the same reasoning: data that never has
+  to survive a restart loses no durability the harness relies on. Harness
+  clusters are discarded after every run. With the settings unchanged, the
+  product's WAL, full-page and checkpoint paths still run; only their cost
+  changes.
+- **Long-term benefit.** PostgreSQL-backed work, about half of `check`,
+  stops depending on the host's disk, and capacity becomes a memory budget
+  that admission already understands.
+- **Compatibility and migration.**
+  - The medium joins the provisioning identity, so seed images rebuild once.
+  - Machines with less memory get fewer concurrent generations through
+    admission, not failures. The cap and the claim live in the topology.
+- **Risks if unresolved.** `check` keeps no margin against its target, and
+  PostgreSQL work grows with the suite on a disk that is already 85% busy.
+- **Risks of the change.**
+  - Memory pressure: 9.5 GB of live data at the observed peak becomes
+    unreclaimable. The claim and the gate bound it; generations that grow to
+    their cap fail clearly (disk full) rather than slowly.
+  - Timing-sensitive tests could behave differently with near-free
+    `fsync`; the gate's paired runs and stress catch that.
+- **Validation.**
+  - The gate above on a paired `check`.
+  - One `ci`.
+  - The `pgtest` contract rows and the recovery owner pass alone.
+
+#### G63 The everyday metric
+
+- **Remediation.** Measure a `check` after a one-file product change and an
+  unchanged `check`, in normal cache mode, at the end of Phase 7. Record them
+  against the 300 s target (G35).
+- **Areas.** Measurement only.
+- **Rationale.** The full-run wall is a stress figure; developers pay for
+  the localized one.
+- **Validation.** The two figures recorded in Section 3.
+
+### 16.3 Workstreams
+
+| Step | Work | Depends on | Exit |
+| --- | --- | --- | --- |
+| P7-0 | Baselines: reuse `p6-6-check02`, `p6-6-ci04` and `p7-0-psi-check`; inventory the readers of raw Playwright, Fallow and fixture artifacts; split post-graph time | — | Recorded here |
+| P7-1 | G56: amend REQ-371 and REQ-372; event schema v5; scheduler attribution; every reader; tests | P7-0 | 16.2 G56 validation on segments and one `check` |
+| P7-2 | G57 and G58: retention by outcome; one fixture materialization owner; closed root top level | P7-0 (reader inventory) | 16.2 G57 and G58 validation |
+| P7-3 | G59: measure; publication-time scanning only if still over 15 s | P7-1, P7-2 | ≤ 15 s outside the graph |
+| P7-4 | G60: look-ahead reservation | — | 16.2 G60 validation |
+| P7-5 | G62, then G61: RAM-backed generations through their gate, then lane counts through theirs | P7-4 (the browser start fix changes what lanes buy); P7-1 (smaller diagnostics) | Gates recorded; adopted defaults amended in the spec |
+| P7-6 | Validation and handoff: paired `check`, paired `ci`, `release-check` once, G63, Section 3 refreshed, gaps closed | All | Section 9 protocol passes; handoff written |
+
+- **Order.** P7-1 and P7-2 first, because they change what every later
+  measurement retains, and P7-1 is the largest win. P7-4 can run in parallel
+  with them. P7-5 last of the code steps, because its gates need the earlier
+  changes in place.
+- **Risks by step.**
+  - **P7-1.** A reader that silently depends on per-holder segments.
+    Mitigation: the v4 to v5 comparison on the same run, and the cutover in
+    one step.
+  - **P7-2.** A consumer that reads a raw report on success. Mitigation: the
+    P7-0 inventory, and a forced-failure test per producer.
+  - **P7-4.** Wrong estimates reserving capacity for nothing. Mitigation: the
+    horizon bound; work that fits its own estimate still enters.
+  - **P7-5.** Memory pressure or a timing-sensitive test. Mitigation: the
+    claim, the cap, the gate and stress runs before adoption.
+
+### 16.4 Validation Protocol
+
+Section 9 applies.
+
+- **Each step.** Segments in the run's exact configuration, including every
+  `ci`-only row the change touches; then the step's own validation. A
+  `check` only where 16.3 says so. Every `ci` folds into P7-6 except G60's
+  and G61's own measurements.
+- **Generation.** Regenerate after every change to authored inputs before
+  any run; P6-6 lost a `ci` to a stale render index.
+- **`release-check`.** Only after every release row a step changed has passed
+  alone.
+- **Markdown.** `lint-markdown` for every tracker change.
+
+### 16.5 Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D35 | Phase 7 scope and order (16.3) | Approve |
+| D36 | Wait segments | Segment on reason only, with per-resource blocked time and the top eight holders on `wait_ended`; schema v5 cutover. The alternative, segmenting on reason and resources, keeps 18% of today's churn |
+| D37 | Retention by outcome | Raw Playwright, Fallow and fixture output only for failures or an explicit diagnostic request; checkpoints removed once the report parses; amend the Fallow output paragraph |
+| D38 | Run-root targets | `check` ≤ 150 MB (unchanged); `ci` ≤ 200 MB; event log ≤ 10 MB and ≤ 20 MB |
+| D39 | Look-ahead reservation | Critical-path units only, with a 60 s horizon |
+| D40 | RAM-backed broker PostgreSQL generations | Adopt through the G62 gate, with unchanged durability settings; reopens the REQ-804 wording on the storage medium |
+| D41 | Browser lanes | Measure 5 and 6 after G60; adopt through the G61 gate |
