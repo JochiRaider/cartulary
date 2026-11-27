@@ -60,22 +60,25 @@ Decision rules applied to every gap:
 5. Durability, isolation scope and secret-scan coverage are not traded for speed.
 
 Targets are hypotheses to confirm against measurements, not commitments. "Current"
-was refreshed on 2026-11-25 from the Go-planned `check` runs of 2026-11-24 and the
-eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by about
-±30 s for `check` and ±60 s for `ci`; compare treatments with two repetitions each.
+was refreshed on 2026-11-27 from the final P4-7 runs (13.16): the paired `check`
+at `eed54855e` (`p48-check01`, `p48-check02`), the paired `ci` at
+`0cd0e8dc8` (`p49-ci01`, `p49-ci02`) and the failed P4-7 `ci` runs. Rows
+marked "not re-measured" keep their 2026-11-25 values. Single runs vary by about
+±30 s for `check` and ±60 s for `ci`; compare treatments with two repetitions
+each.
 
-| Metric | Current (2026-11-25) | Target |
+| Metric | Current (2026-11-27) | Target |
 | --- | ---: | ---: |
-| `check` graph wall, all units run | 593–626 s (seven runs, 2026-11-24); 702–710 s after G28, 887–889 s after G6 | ≤ 500 s |
-| `check` graph wall after a localized product change | Same as a full run: the 124 PostgreSQL-backed units (7,095 s of 8,814 s unit time) are never cached | ≤ 300 s for the median product change (G35) |
-| `ci` graph wall | 1,618–1,735 s (eleven runs, 2026-11-24 to 25); 3,279 s in `ws1-ci01` | ≤ 1,450 s after the component work; ≤ 1,200 s after G31 |
-| `ci` pass rate | 3 of 11; 7 of the 8 failing runs were latent defects that only load exposed | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence |
-| `check` pass rate | 6 of 7; the seventh was a real privilege defect in a new migration | No load-dependent failure |
-| Post-graph overhead per invocation | 11–12 s (outer minus graph, `g6-check01`, `g6-check02`; was ~60 s, ~121 s before G8) | ≤ 15 s (met) |
-| Successful run root | 212 MB `check`, 567 MB `ci`; the event log is 190 MB and 345 MB of it (112,286 wait-segment pairs per `check`, G9 stage 2) | ≤ 150 MB `check` |
-| Temporary directories leaked per clean run | 0 (G10; was ~20) | 0 (met) |
-| Retained results | Still unbounded | Bounded by an owner-set budget |
-| `release-check` wall | 477 s and 497 s in its two passing runs; release work only (release-qualification tracker, S7) | Met |
+| `check` graph wall, all units run | 520 s and 520 s, 1,899 rows (`p48`); 538 s and 544 s at `4dd0b3b98` (`p47`); 593–626 s on 2026-11-24 | ≤ 500 s |
+| `check` graph wall after a localized product change | Not re-measured. On 2026-11-25 a localized change ran as long as a full run: the 124 PostgreSQL-backed units (7,095 s of 8,814 s unit time) were never cached | ≤ 300 s for the median product change (G35) |
+| `ci` graph wall | 1,328 s and 1,361 s, 2,652 rows (`p49`); 1,618–1,735 s on 2026-11-24 to 25 | ≤ 1,450 s after the component work (met); ≤ 1,200 s after G31 |
+| `ci` pass rate | 2 of 5 in P4-7. The three failures came from five latent defects that only load exposed: a Find test race, Vitest teardown attribution, races in one cleanup test, a product defect that cancelled admitted Timeline actions, and a fixed 30 s parse timeout. All but the Timeline defect were diagnosable from their first occurrence; it needed temporary instrumentation | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence |
+| `check` pass rate | 4 of 4 in P4-7 (`p47`, `p48`) | No load-dependent failure (met in P4-7) |
+| Post-graph overhead per invocation | `check` 10–13 s (outer minus graph, `p47`, `p48`); `ci` 28–32 s (`p47`, `p48-ci01`, `p49`), not yet split into time before and after the graph | ≤ 15 s (met for `check`) |
+| Successful run root | 326–328 MB `check`, 733–764 MB `ci`; the event log is 265 MB and 464–494 MB of it | ≤ 150 MB `check` |
+| Temporary directories leaked per clean run | 0 (no new Go temporary or `/tmp` entries across `p48` and `p49`) | 0 (met) |
+| Retained results | Not re-measured; unbounded on 2026-11-25 | Bounded by an owner-set budget |
+| `release-check` wall | Not re-measured: 477 s and 497 s in its two passing runs; release work only (release-qualification tracker, S7) | Met |
 
 ## 4. Gap Register
 
@@ -1379,7 +1382,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3e step 1 | The harness command entry: every graph target's recipe is the Node runtime and one entry call, which admits the inputs in process, produces the target's producers and launches the graph with the environment Make used to assemble; renderer and entry share one input module | `p109-generate2`, `p110` (segment), `p111`, `p112-check01` | Pass. `p112-check01` passed all 1,899 rows in a 559 s graph; a one-row slice takes 0.9 s (1.24 s). Go rows ran 5 to 10% slower than in `p103`, but the same slice is as slow at the pre-P5-3d commit: the machine, not this work (14.32) |
 | 2026-11-26 | P5-3e step 2 | The step commands, Node and owner tools and bootstrap run through the command entry: 62 of 74 public recipes are the Node runtime and one entry call; help, the Markdown lint, the run-status tool, UI review and cleanup stay in Make; the entry writes the target through `run_context` | `p116` (segment), `p117`, `p118-check01` | Pass. `p118-check01` passed all 1,899 rows in a 567 s graph. One `reference_pack_package` failure in `p116` (the destination's migration gate) did not reproduce (14.32) |
 | 2026-11-26 | P5-3e step 3 | Make parses once: each managed recipe takes shared admission for its own command, and the admitted launcher readies Node before the entry; every entry target is one rule with one call; the entry sets target exports; the dead renderer branches and four recipe types go. Fixes a P5-3d fixture regression in a `full`-tier row | `p120` (segment), `p121` (owner slices, 70 rows), `p122-check01` | Pass. `p122-check01` passed all 1,899 rows in a 570 s graph; `make help` takes 8 ms (37 ms) (14.32) |
-| 2026-11-27 | P4-7 (in progress) | Segments for the `ci`-only rows; the paired `check`; two failed `ci` runs and their four defects: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and three cleanup-test races (`e02cece8b`), and admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136` | The `check` pair passed all 1,899 rows in 538 s and 544 s graphs. Both `ci` runs failed; each defect is fixed and proven on segments and under stress. The paired runs repeat on the final commit (13.16) |
+| 2026-11-27 | P4-7 | Segments for the `ci`-only rows; two paired `check` runs; five `ci` runs, three failed and then the passing pair; five defects fixed: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and the cleanup-test races (`e02cece8b`), admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`), and a fixed 30 s Go parse timeout (`0cd0e8dc8`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136`; `p48-check01`, `p48-check02`, `p48-ci01`; `p138`; `p49-ci01`, `p49-ci02` | Pass. `p48` passed all 1,899 rows in 520 s graphs; `p49` passed all 2,652 rows in 1,328 s and 1,361 s graphs. Section 3 refreshed (13.16) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -1954,7 +1957,7 @@ failing tests hit, so G17c and then G17f come next. G17 has since closed (Sectio
 
 ## 13. Phase 4 Plan — Daily `check` and `ci`
 
-**Status.** Approved and in execution since 2026-11-25. The owner approved
+**Status.** Approved 2026-11-25; done 2026-11-27 (P4-7, 13.16). The owner approved
 D11–D16 as recommended on 2026-11-25; D17 is decided by the 13.7 gate after
 P4-5. Progress is recorded per workstream in 13.5 and Section 11. The owner set the priority. Developers use
 `check` and `ci` to validate everyday changes, so their wall time and
@@ -2266,7 +2269,7 @@ tracker has the detail on each failure.
 | P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
 | P4-5 | One admission authority | G30 | Paired `check` and one `ci`. **Done 2026-11-26** (13.14): paired `check` pass; by owner decision its `ci` folds into P4-6's paired `ci`, and correctness was validated with targeted rows, `ci`-only rows included |
 | P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected. **Done 2026-11-26** (13.15): adopted; the paired `ci` exposed G41 and G42, both fixed and proven on segments; the passing paired `ci` folds into P4-7 |
-| P4-7 | Validation and handoff | — | Paired `check`, paired `ci`, Section 3 refreshed |
+| P4-7 | Validation and handoff | — | Paired `check`, paired `ci`, Section 3 refreshed. **Done 2026-11-27** (13.16): paired `check` (`p48`) and paired `ci` (`p49`) pass; the `ci` runs before them exposed five defects, all fixed and proven on segments; Section 3 refreshed |
 
 P4-1 to P4-4 are independent and can proceed in any order. P4-5 starts after
 P4-1 and P4-2, so the scheduler change is measured on stable components.
@@ -2630,7 +2633,7 @@ they claim none of the reserved resources.
   into P4-7's final validation, and the stress condition keeps the 13.10
   baseline.
 
-### 13.16 Validation and Handoff (P4-7, in progress)
+### 13.16 Validation and Handoff (P4-7, done)
 
 P4-7 validates Phases 4 and 5 together with a paired `check` and a paired
 `ci` under the Section 9 protocol (`CARTULARY_OUTPUT_MODE=ci`, basic
@@ -2728,11 +2731,45 @@ so the `ci`-only rows were proven on segments first.
       - Mention resolution has the same presentation-bound preparation.
       - Both owners still end preparation when the Timeline surface
         unmounts, because preparation reads surface-scoped ports.
-- **Remaining.**
-  - Run the paired `check` and paired `ci` on the final commit. The Vitest
-    fix changes every Vitest row, and the capture fix changes the Timeline
-    frontend.
-  - Refresh Section 3.
+- **Paired `check` at `eed54855e`.** `p48-check01` and `p48-check02` passed
+  all 1,899 rows in 520 s graphs (531 s and 532 s outer).
+- **`p48-ci01`: one failure.** `module.records.architecture.boundary`
+  reported a product assertion failure. The check had killed its Go import
+  parse: `spawnSync sourcecheck ETIMEDOUT`.
+  - **Cause.** The backend boundary check, the projection SQL check and the
+    SQL relation analysis parse every collected Go source in one
+    `sourcecheck` child under a fixed 30 s timeout. The row takes 12 to 16 s
+    under `check`, but 25 to 26 s in both `p47` `ci` runs. In `p48-ci01`, CPU
+    pressure was 70 to 85%, and the parse passed 30 s. TH-HARNESS-REQ-864
+    forbids this: a hang guard uses the test's deadline, so load alone
+    cannot fail it.
+  - **Fix (`0cd0e8dc8`).** The parse has no fixed timeout. The enclosing
+    unit's deadline (600 s by default) stops a stuck parser and reports it
+    as a timeout, not as an assertion. The other fixed child-process
+    timeouts in the tooling run only in release evidence or in standalone
+    tool targets, not in `ci`.
+  - **Proof (`p138`).** These passed:
+    - the scripts and backend-boundary lints;
+    - the three rows that run the parse;
+    - the boundary row, `REPEAT=5` under mixed load (18 to 20 s each).
+
+    The stress profile did not drive the parse past 30 s, so the `ci` pair
+    is the proof that matters.
+- **Paired `ci` at `0cd0e8dc8`.** `p49-ci01` and `p49-ci02` passed all 2,652
+  rows in 1,328 s and 1,361 s graphs (1,357 s and 1,389 s outer). The
+  boundary row took 27.1 s and 12.8 s. The `check` pair at `eed54855e` is
+  reused: the only later change removes this timeout, and its rows passed on
+  segments.
+- **Section 3** is refreshed from these runs.
+- **Handoff.**
+  - The `check` graph is 520 s against the 500 s target. The `ci` graph is
+    1,328 to 1,361 s; that meets the 1,450 s component target but not the
+    1,200 s G31 target.
+  - Run roots grew to 326 MB for `check` and about 750 MB for `ci`. The
+    event log is most of it. The 150 MB target is not met.
+  - `ci` spends 28 to 32 s outside the graph, against 10 to 13 s for
+    `check`; that time is not yet split into before and after the graph.
+  - The Timeline known gaps above are open as a separate task.
 
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
 
@@ -2778,7 +2815,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e done (14.32); P5-3 is complete except `ci`, which folds into P4-7 | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e done (14.32); its `ci` passed in P4-7 (13.16), so P5-3 is done | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -3807,7 +3844,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e done (14.32); P5-3 is complete except `ci`, which folds into P4-7.
+(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e done (14.32); its `ci` passed in P4-7 (13.16), so P5-3 is done.
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
