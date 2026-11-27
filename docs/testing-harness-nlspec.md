@@ -2718,6 +2718,13 @@ installed frontend packages, which no file list captures, so the store keeps
 no key for it; its unit's content-addressed cache reuses the two outputs. Its
 requirements are the frontend dependencies and the pinned SBOM scanners.
 
+Its two validation consumers are catalog rows,
+`harness.release.behavior.release_sbom` and
+`harness.release.behavior.release_license_report` (amended 2026-11-27, P6-1).
+They are in the `full` tier, so `ci` produces and validates the inventory for
+every source digest, and release qualification selects the same rows. Either
+runs alone through `test-slice`, which binds the producer's private runtime.
+
 Every artifact prerequisite of an operation or public recipe names a
 registered producer (amended 2026-11-26, P5-3c). No operation, recipe or
 script re-enters Make to make a file; Make has no file rules.

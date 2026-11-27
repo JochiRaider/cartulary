@@ -4557,8 +4557,9 @@ segments and then one `check`:
     keyed on a file list that missed the independent modules.
   - **Not yet run for real.** The generator needs a run-bound private
     runtime, so it runs only inside the release qualification graph and the
-    SeaweedFS gate. Both are release tier, so P4-7 validates it. A Go test
-    covers how the producer invokes it.
+    SeaweedFS gate. A Go test covers how the producer invokes it. (Corrected
+    2026-11-27: this said P4-7 validates it, but P4-7 ran only `check` and
+    `ci`. It first ran in P6-1, 15.6.)
 - **Test service images.** An installation producer now owns them.
   - **Key.** Its receipt is keyed by the test-services binary, which compiles
     in every image reference, and by the producer.
@@ -5015,7 +5016,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request, for approval (15.5). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5349,8 +5350,46 @@ Section 9 applies.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D30 | Approve Phase 6 scope and order (P6-0 to P6-6) | Approve |
-| D31 | `BUILD_CACHE_DISABLE` and `FORCE_REBUILD` | Delete. The public cache mode and store cleanup cover both; if a measured need remains, add explicit producer arguments |
-| D32 | Test-local names | A location rule instead of 84 registry entries |
-| D33 | Where the inventory row runs | Explicit-only and `release-check` by default. Add it to `ci` if its cached cost is ≤ 15 s, to catch dependency drift when it lands |
-| D34 | Startup targets | Adopt 15.2's targets as hypotheses; P6-5 confirms or revises them with measurements |
+| D30 | Approve Phase 6 scope and order (P6-0 to P6-6) | Approve. **Approved by the owner 2026-11-27** |
+| D31 | `BUILD_CACHE_DISABLE` and `FORCE_REBUILD` | Delete. The public cache mode and store cleanup cover both; if a measured need remains, add explicit producer arguments. **Approved 2026-11-27** |
+| D32 | Test-local names | A location rule instead of 84 registry entries. **Approved 2026-11-27** |
+| D33 | Where the inventory row runs | Explicit-only and `release-check` by default. Add it to `ci` if its cached cost is ≤ 15 s, to catch dependency drift when it lands. **Approved 2026-11-27; in `ci` (15.6)** |
+| D34 | Startup targets | Adopt 15.2's targets as hypotheses; P6-5 confirms or revises them with measurements. **Approved 2026-11-27** |
+
+### 15.6 Baselines and the Release Inventory (P6-0, P6-1)
+
+- **Baselines (P6-0).** At `3ecad9938`, from `target-plan … DETAIL=graph`:
+
+  | Target | Units | Rows |
+  | --- | ---: | ---: |
+  | `check` | 372 | 1,899 |
+  | `ci` | 500 | 2,652 |
+  | `release-check` | 26 | 5 |
+
+  The registry holds 449 names in nine roles, 11 of them `mode_switch`. The
+  startup breakdown is 15.1's.
+- **The rows (P6-1).** `harness.release.behavior.release_sbom` and
+  `harness.release.behavior.release_license_report` are shell rows bound to
+  the existing `harness.sbom` and `harness.license_report` validations. They
+  share a new verification, `harness.release.verification.release_inventory`.
+  Release qualification now names the rows instead of the operations, as it
+  does for the package rows.
+- **First real run.** The producer had never run. Run alone, it generated and
+  validated both outputs:
+  - cold, cache off, basic diagnostics: a 10.9 s graph (`p6-1-cold`);
+  - `ci`'s exact configuration (`p6-1-ciconf`);
+  - with the planner cache: a 7.3 s miss, then a 1.2 s hit, 2.1 s outer
+    (`p6-1-cached1`, `p6-1-cached2`).
+
+  No repair was needed.
+- **Placement (D33).** The cold cost is under 15 s, so the rows are in the
+  `full` tier:
+  - `check`'s plan is unchanged;
+  - `ci` gains exactly the inventory's three units and two rows (503 units,
+    2,654 rows);
+  - `release-check` keeps its 26 units with 7 rows, and only the two bound
+    validations change digest.
+- **Specification.** The inventory paragraph names the rows and their tier
+  (amended).
+- **Checks.** `make generate` and `source-check` `catalog` and `generated`
+  passed. 14.30's claim is corrected.

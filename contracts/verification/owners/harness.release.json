@@ -41,6 +41,16 @@
       "public_target": "harness-contract"
     },
     {
+      "verification_id": "harness.release.verification.release_inventory",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "release_check",
+        "shell"
+      ],
+      "public_target": "release-check"
+    },
+    {
       "verification_id": "harness.release.verification.seaweedfs_evidence_contract",
       "behavior_class": "harness",
       "profile": "support",
