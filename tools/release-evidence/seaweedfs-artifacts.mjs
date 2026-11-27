@@ -85,9 +85,9 @@ const recoveryRowID = "module.recovery.process.canonical_operator_process_eviden
 
 // The run's plan is published before execution; its graph must recompute to
 // the run manifest's graph digest.
-function readCurrentGraph(runRoot, manifest) {
+function readCurrentPlan(runRoot, manifest) {
   try {
-    return bindRunPlan(readRunPlan(runRoot), manifest).graph;
+    return bindRunPlan(readRunPlan(runRoot), manifest);
   } catch (error) {
     throw new Error("current graph binding differs", { cause: error });
   }
@@ -97,7 +97,8 @@ function readCurrentGraph(runRoot, manifest) {
 // summary from inside one of that run's own dependent operations.
 export function readCurrentSeaweedfsRecovery({ runRoot, manifest, target }) {
   try {
-    const graph = readCurrentGraph(runRoot, manifest);
+    const plan = readCurrentPlan(runRoot, manifest);
+    const { graph } = plan;
     const gateID = `operation:harness.${target.replaceAll("-", "_")}`;
     const units = new Map(graph.units.map(value => [value.unit_id, value]));
     const gate = units.get(gateID);
@@ -109,13 +110,20 @@ export function readCurrentSeaweedfsRecovery({ runRoot, manifest, target }) {
       if (ancestors.has(id)) continue;
       ancestors.add(id); pending.push(...units.get(id).needs);
     }
-    if (!ancestors.has(expected.unit_id) || expected.cache_policy !== "none") throw new Error("recovery is not a fresh prerequisite");
+    if (!ancestors.has(expected.unit_id)) throw new Error("recovery is not a prerequisite");
     const unitRef = `unit-results/${expected.unit_id.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-")}.json`;
     const rowRef = `rows/${recoveryRowID}.json`;
     const unit = readSeaweedfsJSON(runRoot, unitRef, "cartulary.harness_unit_result.v1");
     const row = readSeaweedfsJSON(runRoot, rowRef, "cartulary.harness_row_result.v6");
+    // This invocation either ran the row or the cache reused its result. A
+    // reused result carries no exit code; it is current only when the plan
+    // keyed the unit by its closure, which holds the test, the services and
+    // every binary the row runs, so the result was recorded under exactly
+    // this run's inputs (P6-6).
+    const fact = (plan.cache ?? []).find(value => value.unit_id === expected.unit_id);
+    const reused = unit.exit_code === null && fact?.eligible === true && typeof fact.input_digest === "string";
     if (unit.unit_id !== expected.unit_id || unit.semantic_digest !== expected.semantic_digest ||
-        unit.status !== "passed" || unit.exit_code !== 0 || unit.signal !== null || unit.failure_class !== null ||
+        unit.status !== "passed" || unit.exit_code !== 0 && !reused || unit.signal !== null || unit.failure_class !== null ||
         unit.failure_reason !== null || unit.missing_outputs.length ||
         expected.current_run_evidence_outputs.some(ref => !unit.evidence_outputs.includes(ref))) {
       throw new Error("recovery unit incomplete");

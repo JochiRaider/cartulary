@@ -11280,6 +11280,11 @@ input set. They establish execution of the selected assertions, not universal re
 conformance. The reader MUST bind the retained execution graph to the current manifest,
 require the row unit in the gate's dependency closure, match its semantic digest and
 declared outputs, and reject nonpassing, incomplete or prior-invocation row results.
+A result the runtime's cache reused under the key the plan computed from the
+unit's closure is current evidence, since that closure holds the test, its
+services and every binary the row runs (amended 2026-11-27, P6-6). Its unit
+result carries no exit code, and the plan's cache fact for the unit must be
+eligible with an input digest. A reuse the plan did not key is rejected.
 A terminal whole-run summary is not required before the gate itself has finished. Stable copies, historical delivery-shaped paths, newest-run
 fallback evidence, retained `services-up` reports, and retired source-migration
 evidence MUST NOT satisfy the gate. Missing selected child artifacts are
@@ -12491,7 +12496,16 @@ profile). Installed modules and packages are bound by the lockfile and
 names by a string literal, when the literal is exactly a file of the source
 snapshot, because a test or its support may read or launch it; a named Node
 module brings its module closure. A named directory or a path the code
-computes is covered only by the profile's `paths` and `prefixes`. A computed
+computes is covered only by the profile's `paths` and `prefixes`. A unit whose
+rows run a built runtime binary (`runtime_binary_ids`) also holds what that
+binary is built from, because the row's result depends on it as much as on
+the test (amended 2026-11-27, P6-6). The binary's producer in
+`tools/harness_producers.json` names its package, so the closure gains that
+package's repository-local import closure without tests and the nearest
+module's files. Where that closure contains a generated directory an
+`embedded_assets` producer publishes, such as the server's web assets, the
+closure also gains its web bundle's declared inputs and its client-support
+file. A binary with no Go binary producer selects the broad closure. A computed
 dynamic import in a closure module not listed in `runner_external_imports`,
 or an unresolvable relative specifier, selects the broad closure rather than
 an incomplete key. The other

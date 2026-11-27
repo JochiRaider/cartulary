@@ -88,23 +88,42 @@ test("SeaweedFS recovery requires current bound graph, prerequisite execution an
     const changed = structuredClone(fixture); mutate(changed); persistRecovery(root, changed);
     assert.throws(() => readCurrentSeaweedfsRecovery({ ...context, manifest: changed.manifest }), /^Error: SeaweedFS recovery admission failed$/u);
   }
-  // Internally consistent graph identities still cannot omit the required edge,
-  // select a different row or authorize cached process evidence.
-  for (const mutate of [
-    units => { units[0].needs = []; },
-    units => { units[0].unit_id = "operation:harness.unrelated"; },
-    units => { units[1].row_bindings[0].row_id = "module.recovery.process.unrelated";
-      units[1].current_run_evidence_outputs = ["rows/module.recovery.process.unrelated.json", "unit-results/recovery.json"]; },
-    units => { units[1].cache_policy = "content_addressed"; },
-  ]) {
-    const changed = structuredClone(fixture); mutate(changed.plan.graph.units);
+  // Internally consistent graph identities still cannot omit the required edge
+  // or select a different row.
+  const regraph = (changed, mutate) => {
+    mutate(changed.plan.graph.units);
     for (const unit of changed.plan.graph.units) { delete unit.semantic_digest; unit.semantic_digest = hash(unit); }
     const graph = changed.plan.graph;
     graph.graph_digest = hash({ units: graph.units }); changed.manifest.graph_digest = graph.graph_digest;
     changed.plan.manifest = structuredClone(changed.manifest);
     changed.unit.semantic_digest = graph.units[1].semantic_digest;
+    return changed;
+  };
+  for (const mutate of [
+    units => { units[0].needs = []; },
+    units => { units[0].unit_id = "operation:harness.unrelated"; },
+    units => { units[1].row_bindings[0].row_id = "module.recovery.process.unrelated";
+      units[1].current_run_evidence_outputs = ["rows/module.recovery.process.unrelated.json", "unit-results/recovery.json"]; },
+  ]) {
+    const changed = regraph(structuredClone(fixture), mutate);
     persistRecovery(root, changed);
     assert.throws(() => readCurrentSeaweedfsRecovery({ ...context, manifest: changed.manifest }), /^Error: SeaweedFS recovery admission failed$/u);
+  }
+  // A cacheable recovery unit is admitted when this invocation ran it, or when
+  // the cache reused its result under the key the plan computed from its
+  // closure. A reuse the plan did not key is not current evidence (P6-6).
+  const cacheable = regraph(structuredClone(fixture), units => { units[1].cache_policy = "content_addressed"; });
+  persistRecovery(root, cacheable);
+  assert.equal(readCurrentSeaweedfsRecovery({ ...context, manifest: cacheable.manifest }).unit.exit_code, 0);
+  const keyed = { unit_id: "recovery", eligible: true, reason: null, profile_id: "test_rows", policy: "content_addressed",
+    input_digest: `sha256:${"1".repeat(64)}`, dependency_strategy: "go_packages", vulnerability_database_revision: null, dependency_digest: `sha256:${"2".repeat(64)}` };
+  const reused = structuredClone(cacheable); reused.unit.exit_code = null; reused.plan.cache = [keyed];
+  persistRecovery(root, reused);
+  assert.equal(readCurrentSeaweedfsRecovery({ ...context, manifest: reused.manifest }).unit.exit_code, null);
+  for (const facts of [[], [{ ...keyed, unit_id: "unrelated" }], [{ ...keyed, eligible: false, reason: "mode_off", input_digest: null }]]) {
+    const unkeyed = structuredClone(reused); unkeyed.plan.cache = facts;
+    persistRecovery(root, unkeyed);
+    assert.throws(() => readCurrentSeaweedfsRecovery({ ...context, manifest: unkeyed.manifest }), /^Error: SeaweedFS recovery admission failed$/u);
   }
 });
 

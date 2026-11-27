@@ -1172,6 +1172,7 @@
           "TestPlannerCompilation",
           "TestPlannerInputs",
           "TestRowCachePolicy",
+          "TestRuntimeBinaryInputs",
           "TestSourceSnapshot"
         ]
       },

@@ -213,7 +213,7 @@ func (p *cachePlanner) broad(profile *CacheProfile, strategy, reason string) clo
 // fixture roots. An imported package's own tests are not part of what a row
 // runs, so they are left out.
 func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, error) {
-	var selected, owners, fixtures, services []string
+	var selected, owners, fixtures, services, binaries []string
 	runner := ""
 	for _, binding := range unit.RowBindings {
 		row := p.in.row(binding.RowID)
@@ -232,9 +232,10 @@ func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, 
 		owners = append(append(owners, row.OwnerID), row.CollaboratorIDs...)
 		fixtures = append(fixtures, row.FixtureInputRoots...)
 		services = append(services, row.ServiceDependencies...)
+		binaries = append(binaries, row.RuntimeBinaryIDs...)
 	}
-	selected, owners, fixtures, services = dedupe(selected), dedupe(owners), dedupe(fixtures), dedupe(services)
-	key := digest(map[string]any{"profile": profile.ProfileID, "runner": runner, "selected": selected, "owners": owners, "fixtures": fixtures, "services": services})
+	selected, owners, fixtures, services, binaries = dedupe(selected), dedupe(owners), dedupe(fixtures), dedupe(services), dedupe(binaries)
+	key := digest(map[string]any{"profile": profile.ProfileID, "runner": runner, "selected": selected, "owners": owners, "fixtures": fixtures, "services": services, "binaries": binaries})
 	if cached, ok := p.closures[key]; ok {
 		return cached, nil
 	}
@@ -270,6 +271,13 @@ func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, 
 			p.under(root, set)
 		}
 		strategy, metadata["workspaces"] = strategyWorkspaces, roots
+	}
+	if len(binaries) != 0 {
+		packages, err := p.binaryInputs(binaries, set)
+		if err != nil {
+			return closure{}, err
+		}
+		metadata["runtime_binaries"], metadata["runtime_binary_packages"] = binaries, packages
 	}
 	for _, root := range fixtures {
 		members := map[int]bool{}
