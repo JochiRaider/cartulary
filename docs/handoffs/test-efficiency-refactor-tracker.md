@@ -5016,7 +5016,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 in progress (15.7). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5393,3 +5393,62 @@ Section 9 applies.
   (amended).
 - **Checks.** `make generate` and `source-check` `catalog` and `generated`
   passed. 14.30's claim is corrected.
+
+### 15.7 Mode Switches (P6-2, in progress)
+
+- **P6-2a: dead step wrappers (`74ed3e48e`).** `run-vitest-step.sh` and
+  `run-playwright-step.sh` had no caller except their own smoke tests; the
+  graph runs both runners directly. Removed with them:
+  - their tests, assurance operations, explicit-only rows and preset checks;
+  - the shell Vitest watchdog that only the wrapper used, and two unused
+    shell functions;
+  - three environment names that nothing reads any more (the registry check
+    found the third).
+
+  Plans are unchanged. The segment `p6-2a` (6 rows) passed.
+- **P6-2b: `GRAPH_CHILD` and `SKIP_PREREQUISITES` (`9ab95fa51`).**
+  - **The operation runner owns output only on request.** It runs an
+    operation's commands bare unless its caller passes `--report`, which
+    bootstrap and agent-finalize do, since they own their capture and target
+    summary. The graph, the shell runner and the UI review run operations
+    bare, which is what the switch produced before.
+  - **One step-runtime behavior.** The browser stack calls its own steps
+    directly, as it did under the graph. Nothing read the step artifacts its
+    nested steps produced outside the graph.
+  - **The entry always produces its prerequisites.** Tests that needed a
+    fixture Node runtime use a stand-in `go`, as the bootstrap test already
+    did. The toolchain-pins test's nested `make` uses one that skips only
+    producer runs.
+  - **Deleted:**
+    - the runner's dead `summary-target` command;
+    - the unused `graph_child_skips_prerequisites` field and its schema
+      property;
+    - the 64 strip entries in 32 operations;
+    - both registry names.
+  - **Specification.** The graph-child Make paragraph and the entry's skip
+    clauses are replaced by the rule: no unit or child changes behavior
+    because of an inherited mode switch.
+  - **Proof.**
+    - Lint `go`, `scripts` and `shell`, and `source-check` `catalog`,
+      `generated`, `surface` and `schema` passed. ShellCheck SC2016 on the
+      first stand-in was fixed with a heredoc.
+    - **Segment (`p6-2b`).** All 40 rows passed:
+      - eight command-surface rows, toolchain pins and public inputs among
+        them;
+      - two evidence-accounting rows and the routing contract;
+      - five release rows;
+      - the eight UI-review rows, both seeded reviews included;
+      - all 14 `harness.generated_artifacts` rows;
+      - two Timeline browser rows.
+    - A public step target and `bootstrap PART=node` passed through
+      `--report`.
+  - **Plans.** Same units and rows. Only the operations whose commands
+    changed have new digests: 1 in `check`, 18 in `ci`, 2 in
+    `release-check`.
+- **Next.**
+  - **P6-2c.** `SUPPRESS_CHILD_SUCCESS` does three jobs: it quiets nested
+    result lines, allows an existing run root, and keeps the step runtime's
+    identity query parseable. Each becomes an explicit owner decision.
+  - **P6-2d.** `IDENTITY_PREPARED`.
+  - **P6-2e.** The single-pair switches and the reclassification, then one
+    `check`.
