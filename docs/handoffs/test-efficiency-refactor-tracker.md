@@ -131,6 +131,11 @@ each.
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. P5-3 removed the overlay (14.31) and the strip lists except the UI-review recipes' public-input strip (14.32); left: that strip and the mode switches that still have readers (14.32); the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23) |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
 | G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Closed: every Go build Make runs is keyed by its import closure from `go list -deps` (14.25) |
+| G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Open (15.2) |
+| G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Open (15.2) |
+| G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Open (15.2) |
+| G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Open (15.2) |
+| G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Open (15.2) |
 
 ## 5. Gap Remediation Detail
 
@@ -1384,6 +1389,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3e step 3 | Make parses once: each managed recipe takes shared admission for its own command, and the admitted launcher readies Node before the entry; every entry target is one rule with one call; the entry sets target exports; the dead renderer branches and four recipe types go. Fixes a P5-3d fixture regression in a `full`-tier row | `p120` (segment), `p121` (owner slices, 70 rows), `p122-check01` | Pass. `p122-check01` passed all 1,899 rows in a 570 s graph; `make help` takes 8 ms (37 ms) (14.32) |
 | 2026-11-27 | P4-7 | Segments for the `ci`-only rows; two paired `check` runs; five `ci` runs, three failed and then the passing pair; five defects fixed: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and the cleanup-test races (`e02cece8b`), admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`), and a fixed 30 s Go parse timeout (`0cd0e8dc8`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136`; `p48-check01`, `p48-check02`, `p48-ci01`; `p138`; `p49-ci01`, `p49-ci02` | Pass. `p48` passed all 1,899 rows in 520 s graphs; `p49` passed all 2,652 rows in 1,328 s and 1,361 s graphs. Section 3 refreshed (13.16) |
 | 2026-11-27 | P4-7 follow-up | Admitted Timeline mention operations and capture and mention preparation survive presentation detachment and sheet switches (`02ba63702`) | `p140`, `p141`, `p142` (segment), `p143`, `p144` | Pass. 32 targeted rows, lint, types, boundaries, generated and catalog checks (13.17) |
+| 2026-11-27 | Phase 6 plan | Traced the five Phase 5 residuals and proposed Phase 6 (P6-0 to P6-6, G48 to G52, D30 to D34) | `p147` (startup timing), registry and work-graph scans | Proposed; awaiting the owner's decisions (15.5) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -5006,3 +5012,345 @@ statuses are unchanged.
     diagnostics supervise the admitted recipe command as they supervised
     the re-executed Make.
   - **Not run.** `ci` folds into P4-7, as planned.
+
+## 15. Phase 6 Plan — Phase 5 Residuals
+
+Status: proposed 2026-11-27 at the owner's request, for approval (15.5). It
+removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
+cleanest lasting structure: behavior that exists only for compatibility goes,
+rather than being carried forward.
+
+### 15.1 Findings
+
+Measured or traced on 2026-11-27 at `8f6a1ecc9`.
+
+- **Mode switches.** The registry's `mode_switch` role holds 11 names.
+  - The graph runtime sets four of them to `1` in every unit's environment:
+    `GRAPH_CHILD`, `IDENTITY_PREPARED`, `SKIP_PREREQUISITES` and
+    `SUPPRESS_CHILD_SUCCESS` (`run_linux.go`). Each `CARTULARY_HARNESS_` or
+    `CARTULARY_` prefix is dropped here.
+  - Because the switches are ambient, 30 assurance operations that start a
+    real `make` begin their command with `env -u` for three of them. That is
+    a strip list in the work graph owner.
+  - The UI review starts operations through `operation-runner-cli.mjs` with
+    `GRAPH_CHILD` and `SKIP_PREREQUISITES` set.
+  - The readers implement three execution paths for one operation:
+    - a graph unit, where the runner owns capture and the step runtime skips
+      its own artifacts;
+    - a public step target, which runs the step runtime with its own step and
+      target artifacts;
+    - the operation runner.
+  - The specification still describes "a Make child selected as a graph
+    unit" and its skipped prerequisites. Since P5-3e no unit re-enters Make.
+  - The other seven are not structural:
+    - `GENERATE_DRIFT_REFRESH` distinguishes two operations by an
+      environment value.
+    - `ALLOW_EXISTING_RUN_ROOT` has one writer and one reader.
+    - `BUILD_CACHE_DISABLE` and `FORCE_REBUILD` are developer knobs that no
+      public input declares.
+    - `OUTPUT_MODE`, `PREPARATION_POLICY` and `EXECUTION_ENABLED` are real
+      inputs or run context, filed under the wrong role.
+- **The UI-review strip list.** The five UI-review recipes strip every public
+  input in Make and run `ui-review/launch.sh`. The launcher scrubs
+  `NODE_OPTIONS`, `NODE_PATH`, `DEBUG`, `PWDEBUG` and `OTEL_*`, checks the
+  Node version and prints a structured `ui_review_command_result.v2` failure
+  when Node is missing. The command entry checks only that `NODE_BIN` is
+  executable and prints plain text. Node and owner tools launched by the
+  entry inherit the entry's environment minus public inputs, so they are not
+  default-deny either.
+- **Environment names.** The registry holds 449 names. 165 appear in one file
+  only, and 85 only in tests (83 of them `test_internal`).
+  - 46 of the single-file names are in `start-web-e2e.sh`. That script
+    passes values, including the restart secrets, through the environment to
+    inline Node programs in the same file.
+  - 68 are `test_internal` names owned by one test file.
+  - About 40 are tool options, invocation context or step runtime names
+    used by one program.
+- **Startup.** A cached one-row `test-slice` takes 1.85 s outer, with a
+  0.35 s graph. Four warm runs took 1.79 to 1.90 s.
+
+  | Interval | Time |
+  | --- | --- |
+  | Make, admission, Node entry and preflight | 0.08 s |
+  | `go run ./tools/harnessbuild produce frontend-install harness-runtime` | 0.43 s, of which `go list -deps` keying `harness-runtime` takes 0.17 s |
+  | Graph `runtime_prepare` (planning and dead-runtime recovery) | 0.87 s |
+  | Execution, including a second `go run … produce frontend-install` by the graph's own operation unit | 0.35 s, of which 0.10 s is the duplicate |
+  | Publication and exit | 0.10 s |
+
+  13.16 and 14.32 put the cost before the graph at about 0.8 s, dominated by
+  `go run`. Planning is the larger cost, and the frontend installation is
+  produced twice.
+- **Release inventory.** The `release-inventory` producer runs only as
+  `harness.release_inventory_artifacts`, which `harness.sbom` and
+  `harness.license_report` need. Only `release-check` and the SeaweedFS gate
+  reach them. No row or isolated command runs the producer. 14.30 says P4-7
+  validated it, but P4-7 ran `check` and `ci`, so it has never run.
+
+### 15.2 Gaps
+
+| ID | Gap | Areas | Workstream | Priority |
+| --- | --- | --- | --- | --- |
+| G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | P6-2 | High |
+| G49 | UI-review recipes bypass the command entry and keep a public-input strip list to report a missing Node; entry tools are not default-deny | Specification, implementation, tests | P6-3 | Medium |
+| G50 | 449 registered names, many used in one file; secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | P6-4 | Medium |
+| G51 | A one-row slice costs 1.85 s, mostly planning and a `go run` producer call; one producer runs twice | Implementation, specification | P6-5 | Medium |
+| G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | P6-1 | High (release) |
+
+#### G48 Ambient mode switches
+
+- **Remediation.**
+  - **One operation contract.** Every operation runs under an executor that
+    owns prerequisites, run identity, output capture and the result: the
+    graph runtime or the operation runner. A public step target runs its
+    operation through the operation runner, as bootstrap does, instead of
+    its own step and target artifacts. The step runtime has one behavior,
+    and no child skips prerequisites or prepares identity.
+  - **Delete** `GRAPH_CHILD`, `SKIP_PREREQUISITES` and `IDENTITY_PREPARED`,
+    with every reader and writer. That includes the blanket in
+    `run_linux.go`, the 30 `env -u` prefixes, the step runtime's
+    legacy-artifact branch, the runner's `summary-target` branch and the
+    UI review's two settings.
+  - **Presentation belongs to the parent.** A parent that wants a quiet
+    child captures its output and shows it on failure.
+    `SUPPRESS_CHILD_SUCCESS` and `suppressChildSuccess` go.
+  - **Arguments, not switches.**
+    - `GENERATE_DRIFT_REFRESH` becomes `--refresh`.
+    - `ALLOW_EXISTING_RUN_ROOT` becomes an argument of the contract command.
+    - `BUILD_CACHE_DISABLE` and `FORCE_REBUILD` go (D31).
+  - **Reclassify the real inputs.** `OUTPUT_MODE` is a declared public
+    input. `PREPARATION_POLICY` becomes an argument of the producer command
+    and a field of the review input. `EXECUTION_ENABLED` becomes a
+    `run_context` field.
+
+  Then the `mode_switch` role is deleted, and the registry check rejects a
+  new one.
+- **Areas.** Specification, implementation and tests:
+  - The specification drops the graph-unit Make child paragraph and the
+    entry's "unless a graph child skips prerequisites".
+  - TH-HARNESS-REQ-158 is rewritten: identity comes only from the run
+    context owner.
+  - A new rule: no child's behavior depends on an ambient switch, and
+    output suppression is the parent's.
+- **Rationale.** The switches exist only to tell a child which of three
+  paths it is on. One path makes them meaningless, and with them goes the
+  machinery to stop them leaking, such as the 30 strip prefixes.
+- **Long-term benefit.** One way to run an operation, so a fix or new
+  operation is written once. No hidden coupling between a parent's
+  environment and a child's behavior. The registry describes data, not
+  control flow.
+- **Compatibility and migration.**
+  - The public step targets keep their names, inputs and exit codes. Their
+    retained artifacts move from step-runtime files to the operation
+    runner's result. Results readers already read that result, which the
+    migration step confirms.
+  - The developer knobs need no shim: the public cache mode and store
+    cleanup replace them (D31).
+- **Risks if unresolved.** Every new nested test needs the strip prefix or it
+  silently skips prerequisites. The graph-unit and public paths diverge. The
+  specification describes a mechanism that no longer exists.
+- **Validation.**
+  - The registry has no `mode_switch` role.
+  - `git grep` finds none of the deleted names outside dated tracker
+    history.
+  - No operation command contains `env -u`.
+  - `check`, `ci` and `release-check` plan the same units, and only the
+    changed operations change digest.
+  - Segments pass for `harness.command_surface`,
+    `harness.evidence_accounting`, `harness.generated_artifacts`,
+    `harness.browser` (the eight UI-review rows included) and the assurance
+    operations.
+  - Then one `check`.
+
+#### G49 UI-review recipes outside the entry
+
+- **Remediation.**
+  - The entry reports Node unavailability as a structured result for every
+    target. The shell checks the pinned version, not only that the file
+    exists. It prints the target's declared envelope, which the generated
+    recipe passes as a literal argument: the UI-review v2 result for review
+    targets, the harness result line otherwise.
+  - The UI-review commands become ordinary entry tools.
+  - **Deleted:** `launch.sh`, `TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV` and
+    the renderer's review branch.
+  - Entry tools get default-deny environments built from the registry, as
+    units have since P5-4b. That replaces the launcher's scrub list with
+    the general rule.
+- **Areas.** Specification (the entry paragraph and the "stay Make recipes"
+  list), implementation, tests.
+- **Rationale.** The exception existed because one failure needed a
+  structured report. Making that report a property of every target removes
+  the exception and improves every target.
+- **Long-term benefit.**
+  - Only help, the Markdown lint, the run-status observer and cleanup
+    stay Make recipes.
+  - A missing or wrong Node reports the same way everywhere.
+  - Tools inherit nothing undeclared.
+- **Compatibility and migration.** Same command names, inputs and v2
+  result. The UI-review skill documents no launcher path. A tool that relied
+  on an inherited undeclared variable fails its segment and gets a
+  declaration.
+- **Risks if unresolved.** Two admission paths. A version-mismatched Node
+  passes the entry's existence check. Tools inherit `NODE_OPTIONS` or debug
+  flags from the shell.
+- **Validation.**
+  - A test runs each recipe family with Node absent and with the wrong
+    version, and checks the structured result and exit 2.
+  - The eight UI-review rows pass, the seeded review included.
+  - The task-surface report asserts no strip variable.
+  - A tool's captured environment holds only declared names.
+
+#### G50 Environment-name sprawl
+
+- **Remediation.** One rule: an environment name exists only where a value
+  crosses a process boundary between different programs, with a declared
+  writer and reader, or where it is a declared public, product or user
+  input. Then:
+  - **Browser stack.** The inline Node programs in `start-web-e2e.sh`
+    become modules that take one JSON document on standard input. Secrets
+    never enter an environment, and 46 names go.
+  - **Test-local names (D32).** A name used only in test sources is owned
+    by its test and needs no registry entry. The check rejects such a name
+    in non-test code or in any unit environment grant. The 84
+    `test_internal` entries go. A Go test that re-executes itself passes
+    its mode as an argument where that is simpler.
+  - **The rest, about 40.** Each is reviewed:
+    - writer and reader in one process: a variable;
+    - a harness parent and child: an argument;
+    - a user knob: a documented tool option;
+    - otherwise: deleted.
+- **Areas.** Implementation, tests, the registry, its schema and check, and
+  the specification's environment section.
+- **Rationale.** The registry should describe the real interfaces. A name
+  that never crosses a program boundary adds a registration, a check and a
+  place for typos, with no isolation gain.
+- **Long-term benefit.**
+  - The registry roughly halves, and what remains is meaningful.
+  - Secrets stop appearing in `/proc/<pid>/environ` of the browser stack.
+  - New tests need no registry change unless they cross into harness code.
+- **Compatibility and migration.** Internal names only. The browser stack's
+  inline programs move into files that the catalog's shell coverage already
+  scans.
+- **Risks if unresolved.** Registry churn on every test change. Secrets in
+  process environments. A shrinking signal-to-noise ratio that makes the
+  check easy to ignore.
+- **Validation.**
+  - Single-file names are only public, product or documented user inputs,
+    each with a reason in the registry.
+  - No secret-bearing name is in any environment a launcher builds.
+  - The browser rows pass, restart and SeaweedFS included.
+  - The registry check rejects a test-local name placed in harness code.
+
+#### G51 Startup cost
+
+- **Remediation.**
+  - **One owner per producer.** The entry produces only what launching the
+    graph needs, the harness runtime binary. Operations the graph declares,
+    such as the frontend installation, are produced by the graph alone.
+  - **No `go run` on the hot path.** The entry runs a store-resident
+    `harnessbuild` executable. A cheap check decides whether it and the
+    harness runtime are current; recomputing `go list -deps` on every
+    invocation is not cheap. The key design is chosen by measurement in P6-5
+    and must stay exact, the G47 rule.
+  - **Profile `runtime_prepare`** by phase: catalog load and validation,
+    selector resolution, digests and dead-runtime recovery. Remove the
+    dominant costs; for example, validate generated inputs once at
+    generation and trust their digest at run time.
+- **Areas.** Implementation and specification (the entry's producer step and
+  the planner's trust of generated inputs), plus tests for the key.
+- **Rationale.** Every agent and developer command pays this cost several
+  times per task, and most of it is repeated work.
+- **Long-term benefit.** Targeted segments and one-row loops become
+  interactive. Removing the double production removes one more case of two
+  owners for one output.
+- **Compatibility and migration.** No interface change. The store gains one
+  key record for the launcher.
+- **Risks if unresolved.** Startup grows with the catalog. The double
+  production hides ordering assumptions.
+- **Validation.**
+  - A cached one-row slice takes ≤ 0.8 s outer, measured over five runs.
+    The interval targets are hypotheses to confirm: ≤ 0.15 s before the
+    graph and ≤ 0.3 s `runtime_prepare`.
+  - Plans are unchanged.
+  - A stale-key test changes a harness source and sees the launcher
+    rebuild.
+  - One `check`.
+
+#### G52 Release inventory unverified
+
+- **Remediation.**
+  - Give the producer an explicit-only row, owned by `harness.release`. Its
+    unit runs the real producer in a private run-bound runtime and validates
+    the pair: the CycloneDX schema, the license report and the semantic
+    inputs.
+  - Run it alone, fix what fails, and only then let the next
+    `release-check` integrate it.
+  - Correct 14.30.
+- **Areas.** Tests (the row), documentation (14.30) and, if the run finds
+  defects, implementation.
+- **Rationale.** A release-only producer that has never run will fail at
+  release time, the worst moment, and the memory rule forbids discovering
+  that in `release-check`.
+- **Long-term benefit.** The inventory can be proved on demand. Dependency
+  changes that break it are found when they land, if D33 puts it in `ci`.
+- **Compatibility and migration.** None. `release-check` keeps its edge
+  through the same operation.
+- **Risks if unresolved.** A failed release qualification. A false record of
+  validation.
+- **Validation.** The row passes alone twice: cold, and with the planner
+  cache. Its outputs validate against their schemas. 14.30 is corrected.
+
+### 15.3 Workstreams
+
+| Step | Work | Depends on | Exit |
+| --- | --- | --- | --- |
+| P6-0 | Baselines: registry counts, plans and digests of `check`, `ci` and `release-check`, the startup breakdown (five runs) | — | Recorded here |
+| P6-1 | G52: the inventory row, an isolated run and repairs; 14.30 corrected | P6-0 | The row passes alone, cold and cached |
+| P6-2 | G48, in order: specification amendment; parent-owned presentation; one operation contract (public steps through the operation runner, single-behavior step runtime); delete the three structural switches, the blanket and the 30 prefixes; arguments for the single-pair switches; reclassify the real inputs; delete the role | P6-0 | 15.2 G48 validation; one `check` |
+| P6-3 | G49: structured Node unavailability in the entry; default-deny tool environments; UI review through the entry; launcher and strip list deleted | P6-2 (the entry changes) | 15.2 G49 validation |
+| P6-4 | G50: browser-stack JSON inputs; the test-local rule; the per-name review | P6-2, P6-3 (they delete names) | 15.2 G50 validation |
+| P6-5 | G51: one producer owner; the store-resident launcher; `runtime_prepare` profiling and cuts | P6-2 (the entry's producer path) | 15.2 G51 validation |
+| P6-6 | Validation and handoff: paired `check`; paired `ci` (or folded into the next planned `ci`); `release-check` once, only after every changed release row passed alone; Section 3 refreshed; G44, G45 and G48 to G52 closed | All | Section 9 protocol passes; the handoff written |
+
+P6-1 is independent and smallest. It runs first because it guards the
+release. P6-2 is the largest and carries the specification change. P6-3 and
+P6-5 both change the entry, so they follow P6-2 and can run in either order.
+P6-4 comes last of the code steps because the earlier steps delete names.
+
+**Risks by step.**
+
+- **P6-1.** The producer needs network access or scanner caches that the
+  private runtime lacks. Mitigation: record the failure precisely and fix
+  the producer's declared requirements.
+- **P6-2.**
+  - Retained artifacts that agents or reports read from step-runtime paths.
+    Mitigation: inventory the readers before deleting.
+  - Assurance tests that rely on public prerequisites inside a unit.
+    Mitigation: their segment runs before the deletion lands.
+- **P6-3.** Tools that needed an inherited variable. Mitigation: the
+  default-deny change lands with segments for every tool target.
+- **P6-4.** Inline browser-stack programs whose environment was read by
+  their own children. Mitigation: trace children before converting.
+- **P6-5.** A cheaper key that misses a dependency, which is G47 again.
+  Mitigation: the key must be exact and a stale-key test proves it, or the
+  step keeps `go list` and accepts the cost.
+
+### 15.4 Validation Protocol
+
+Section 9 applies.
+
+- **Each step.** Segments in the run's exact configuration, then the step's
+  own validation. A `check` only where 15.3 says so. Every `ci` is folded
+  into P6-6 unless a step's risk needs one.
+- **`release-check`.** Only after P6-1's row and every release row a step
+  changed have passed alone (the memory rule).
+- **Markdown.** `lint-markdown` for every tracker change.
+
+### 15.5 Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D30 | Approve Phase 6 scope and order (P6-0 to P6-6) | Approve |
+| D31 | `BUILD_CACHE_DISABLE` and `FORCE_REBUILD` | Delete. The public cache mode and store cleanup cover both; if a measured need remains, add explicit producer arguments |
+| D32 | Test-local names | A location rule instead of 84 registry entries |
+| D33 | Where the inventory row runs | Explicit-only and `release-check` by default. Add it to `ci` if its cached cost is ≤ 15 s, to catch dependency drift when it lands |
+| D34 | Startup targets | Adopt 15.2's targets as hypotheses; P6-5 confirms or revises them with measurements |
