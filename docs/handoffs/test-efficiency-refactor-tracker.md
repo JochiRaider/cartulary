@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is proposed and awaits D35 to D41. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 is recorded (16.6). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1396,7 +1396,8 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P4-7 | Segments for the `ci`-only rows; two paired `check` runs; five `ci` runs, three failed and then the passing pair; five defects fixed: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and the cleanup-test races (`e02cece8b`), admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`), and a fixed 30 s Go parse timeout (`0cd0e8dc8`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136`; `p48-check01`, `p48-check02`, `p48-ci01`; `p138`; `p49-ci01`, `p49-ci02` | Pass. `p48` passed all 1,899 rows in 520 s graphs; `p49` passed all 2,652 rows in 1,328 s and 1,361 s graphs. Section 3 refreshed (13.16) |
 | 2026-11-27 | P4-7 follow-up | Admitted Timeline mention operations and capture and mention preparation survive presentation detachment and sheet switches (`02ba63702`) | `p140`, `p141`, `p142` (segment), `p143`, `p144` | Pass. 32 targeted rows, lint, types, boundaries, generated and catalog checks (13.17) |
 | 2026-11-27 | Phase 6 plan | Traced the five Phase 5 residuals and proposed Phase 6 (P6-0 to P6-6, G48 to G52, D30 to D34) | `p147` (startup timing), registry and work-graph scans | Proposed; awaiting the owner's decisions (15.5) |
-| 2026-11-27 | Phase 7 plan | Traced the two Phase 6 residuals (run-root size, wall-time margin) and proposed Phase 7 (P7-0 to P7-6, G56 to G63, D35 to D41) | `p6-6-check02`, `p6-6-ci04`, `p7-0-psi-check` (host pressure, disk and PostgreSQL size sampling) | Proposed; awaiting the owner's decisions (16.5) |
+| 2026-11-27 | Phase 7 plan | Traced the two Phase 6 residuals (run-root size, wall-time margin) and proposed Phase 7 (P7-0 to P7-6, G56 to G63, D35 to D41) | `p6-6-check02`, `p6-6-ci04`, `p7-0-psi-check` (host pressure, disk and PostgreSQL size sampling) | Approved as recommended (16.5) |
+| 2026-11-27 | P7-0 | Post-graph time split; readers of wait events and of raw Playwright, Fallow and fixture output inventoried; the 16.1 scan inference corrected | `p7-0-split-check` (timed runtime), scan copies of `p6-6-check02` and `p6-6-ci04` | Recorded (16.6) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -5894,8 +5895,8 @@ basic diagnostics, cache off, sequential).
 
 ## 16. Phase 7 Plan — Run-Root Size and Wall-Time Margin
 
-Status: proposed 2026-11-27 at the owner's request. Awaiting D35 to D41
-(16.5). It addresses the two residuals of Phase 6's handoff (15.11):
+Status: proposed 2026-11-27 at the owner's request; D35 to D41 approved as
+recommended the same day (16.5). It addresses the two residuals of Phase 6's handoff (15.11):
 
 - `check` is at its 500 s target with no margin, and `ci` (about 1,320 s)
   misses the 1,200 s G31 target;
@@ -5930,9 +5931,10 @@ generation.
     `ci`, so the log would be about 3 MB and 5 MB.
 - **Post-graph time scales with root bytes.** `check` spends 11–12 s
   outside the graph and `ci` 27–30 s; both are about 27 MB/s of retained
-  root. The runtime's own closing phases take 4 s, so the rest is inferred
-  to be the retained-root secret scan, which reads every byte. A shrunk root
-  removes most of it.
+  root. The runtime's own closing phases take 4 s, and the retained-root
+  secret scan takes most of the rest: it reads every byte once for each
+  registered secret (measured in P7-0, 16.6). A shrunk root removes most of
+  it.
 - **`check` is bound by PostgreSQL, and PostgreSQL by the disk.**
   - 122 PostgreSQL units hold 3,686 unit-seconds; eight generation slots
     make that about 461 s, close to the 493–505 s wall. The ten heaviest
@@ -6032,8 +6034,9 @@ generation.
   - the Playwright checkpoint is removed once the final report parses, and
     is kept only when it was needed;
   - raw Playwright reports and raw Fallow JSON, SARIF and Markdown are kept
-    for failed units, or when `HARNESS_DIAGNOSTICS=basic` asks for raw
-    diagnostics;
+    for failed units, or when an explicit raw-diagnostics request asks for
+    them. That request is not `HARNESS_DIAGNOSTICS=basic`, which every
+    Section 9 run sets (16.6);
   - bounded summaries, such as the Fallow static summary and its totals,
     stay in every run.
 - **Areas.** The artifact table and the Fallow output paragraph (line 4648);
@@ -6084,10 +6087,14 @@ generation.
 
 - **Remediation.**
   - Measure the split of post-graph time (secret scan, publication, Make)
-    after G56 to G58.
-  - If either command still spends more than 15 s, scan each artifact when
-    it is published rather than the whole root at the end. Publication
-    already owns atomic writes, so it can own the scan record too.
+    after G56 to G58. P7-0 measured it before them (16.6): the scan is
+    6.8 s of `check`'s 11 s, and its cost is bytes times registered secrets.
+  - If either command still spends more than 15 s, first make the scan
+    independent of the secret count: match every registered secret in one
+    pass, for example with a multi-pattern automaton. Then, only if still
+    needed, scan each artifact when it is published rather than the whole
+    root at the end. Publication already owns atomic writes, so it can own
+    the scan record too.
 - **Areas.** Measurement first; the publication owner and the retained scan
   only if needed.
 - **Rationale.** A full rescan duplicates the reads of publication. The
@@ -6253,10 +6260,79 @@ Section 9 applies.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D35 | Phase 7 scope and order (16.3) | Approve |
-| D36 | Wait segments | Segment on reason only, with per-resource blocked time and the top eight holders on `wait_ended`; schema v5 cutover. The alternative, segmenting on reason and resources, keeps 18% of today's churn |
-| D37 | Retention by outcome | Raw Playwright, Fallow and fixture output only for failures or an explicit diagnostic request; checkpoints removed once the report parses; amend the Fallow output paragraph |
-| D38 | Run-root targets | `check` ≤ 150 MB (unchanged); `ci` ≤ 200 MB; event log ≤ 10 MB and ≤ 20 MB |
-| D39 | Look-ahead reservation | Critical-path units only, with a 60 s horizon |
-| D40 | RAM-backed broker PostgreSQL generations | Adopt through the G62 gate, with unchanged durability settings; reopens the REQ-804 wording on the storage medium |
-| D41 | Browser lanes | Measure 5 and 6 after G60; adopt through the G61 gate |
+| D35 | Phase 7 scope and order (16.3) | Approve. **Approved 2026-11-27** |
+| D36 | Wait segments | Segment on reason only, with per-resource blocked time and the top eight holders on `wait_ended`; schema v5 cutover. The alternative, segmenting on reason and resources, keeps 18% of today's churn. **Approved 2026-11-27** |
+| D37 | Retention by outcome | Raw Playwright, Fallow and fixture output only for failures or an explicit diagnostic request; checkpoints removed once the report parses; amend the Fallow output paragraph. **Approved 2026-11-27** |
+| D38 | Run-root targets | `check` ≤ 150 MB (unchanged); `ci` ≤ 200 MB; event log ≤ 10 MB and ≤ 20 MB. **Approved 2026-11-27** |
+| D39 | Look-ahead reservation | Critical-path units only, with a 60 s horizon. **Approved 2026-11-27** |
+| D40 | RAM-backed broker PostgreSQL generations | Adopt through the G62 gate, with unchanged durability settings; reopens the REQ-804 wording on the storage medium. **Approved 2026-11-27** |
+| D41 | Browser lanes | Measure 5 and 6 after G60; adopt through the G61 gate. **Approved 2026-11-27** |
+
+### 16.6 Baselines and Inventory (P7-0, done)
+
+- **Baselines.** `p6-6-check02`, `p6-6-ci04` and `p7-0-psi-check` stand
+  (16.1).
+- **Post-graph split.** `p7-0-split-check` (511.5 s graph, 522.7 s outer,
+  317 MB root) ran with the runtime binary wrapped by a timer. The run's own
+  terminal receipt gives the scan interval.
+
+  | Interval | Time |
+  | --- | ---: |
+  | Make, admission and the entry, before the runtime | 0.2 s |
+  | Runtime start to the graph | about 0.4 s |
+  | Graph | 511.5 s |
+  | Graph end to the last target summary, run summary and diagnostics index | about 3.6 s |
+  | Retained secret scan (`scan_interval`) | 6.8 s |
+  | Receipt publication and exit | 0.06 s |
+
+  - The same scan on copies of `p6-6-check02` and `p6-6-ci04` with no
+    registered secrets took 0.9 s and 2.2 s. So reading the bytes is cheap;
+    the cost is `ScanRetained` running one substring search for each
+    registered secret over each 64 KiB chunk. The run registers a secret for
+    every credential it mints, PostgreSQL generations among them, so the
+    cost is bytes times secrets.
+  - The 3.6 s includes the Go reduction of the 257 MB event log, which G56
+    shrinks.
+  - `ci` was not re-measured; its 27–30 s fits 790 MB at the same rates.
+    P7-3 measures both after G56 to G58, and G59's first remedy, if one is
+    needed, is a scan whose cost does not depend on the secret count.
+- **Wait-event readers (P7-1).**
+  - The scheduler (`engine.go`) is the only writer.
+  - The canonical reducers in Go (`canonical.go`: timing, resource pressure)
+    and Node (`canonical-unit-events.mjs`, `performance-projection.mjs`)
+    validate segments and reduce them to reason totals, resource-blocked
+    unions, segment counts, blocked units and resource holders.
+  - The critical-path `waits` view (`critical-path.mjs`, critical-path schema
+    v5) returns each segment with its blockers.
+  - The performance explanation shows the first 20 blocked units and holders
+    (`performance-analysis.mjs`).
+  - Live views (`live_linux.go`, `live-observation.mjs`, `observation.go`)
+    show the scheduler's current blockers, not events, so v5 leaves them
+    unchanged.
+  - `explain-run` still falls back to `critical_path_blockers` and
+    `top_blockers`, which nothing produces any more.
+- **Playwright readers (P7-2).** The browser target finalizer
+  (`browser-target-finalizer-cli.mjs`) reads every cohort's
+  `playwright-report.json` for visual reconciliation after the cohorts
+  finish. A successful report can therefore go only after that consumer, in
+  the finalizer, not in the cohort producer. Nothing reads the checkpoint
+  once the report parses.
+- **Fallow readers (P7-2).** The static summary's `artifacts` list names
+  every raw file: dead-code JSON, SARIF and Markdown, dupes, health and the
+  package-surface report (`fallow-static.mjs`). The producer must therefore
+  decide retention and list only what it keeps, which changes the summary
+  schema.
+- **Fixture materializers (P7-2).** Three owners write at the root's top
+  level, and G58's single owner replaces all three:
+  - Go `networkflowfixtures.Run` (`NF-FIX-…-<n>`) already releases inputs
+    and produced bytes after a pass and keeps the summary;
+  - Node `tools/harness/fixtures/network-flow.mts` (`NF-FIX-…-node-…`) keeps
+    inputs and produced bytes after a pass, which is the 38 MB in `ci`;
+  - Go `irfixtures.ForTest` (`ir-incident-…`) keeps only its record after a
+    pass.
+- **Diagnostics level (P7-2).** Section 9 runs set
+  `HARNESS_DIAGNOSTICS=basic`. If `basic` kept raw output, every protocol
+  run would keep it and D38's targets could not be met where they are
+  measured. Raw output is therefore kept for failures and for a separate
+  explicit raw request; P7-2 settles that request's form in the spec,
+  within D37.
