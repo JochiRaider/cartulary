@@ -5696,9 +5696,10 @@ declared public, product or operator input.
   - **Segment (`p6-4a-*`).** Passed: the browser artifact assurance, browser
     stack, development stack and environment registry rows, 10 browser rows
     across evidence, entities, timeline and network flow, the preparation
-    contract, and the whole `module.timeline` owner (202 rows). No real
-    backend restart occurred; the lease update is covered by the new
-    `web-e2e-session-cli.mjs` tests.
+    contract, and the whole `module.timeline` owner (202 rows). This segment
+    ran no backend reset. The `p6-4bc-*` segment below did: its native
+    fixture lifecycle row resets one real stack ten times through the new
+    lease update.
   - **Segment (`p6-4bc-*`, five owner slices).** All 17 rows passed: the
     environment registry, public registry parity, development services and
     stack, task-surface report, browser stack, work-graph planner and native
@@ -5873,10 +5874,17 @@ basic diagnostics, cache off, sequential).
     1,320 s meets the 1,450 s component target, not the 1,200 s G31 target.
   - Run roots are unchanged at about 320 MB for `check` and 790 MB for
     `ci`; the event log is most of each. The 150 MB target is not met.
-  - The browser stack's backend reset path, rewritten in P6-4a, never runs
-    in `check` or `ci`: every cohort gets its own stack (22 stacks, no
-    reuse, in `p6-6-ci01`). It is covered by unit tests only. A row that
-    reuses a stack would exercise it.
+  - The browser stack's backend reset path, rewritten in P6-4a, runs in
+    `ci` through `harness.browser.integration.native_fixture_lifecycle`.
+    `TestNativeFixturePhysicalLifecycle/owned` resets one real stack ten
+    times through the native broker (`reset-route.sh`, then
+    `start-web-e2e.sh --session-reset-backend` and the lease update). It
+    fails unless each reset's lease records the next backend generation, and
+    it passed in `p6-6-ci04`. The `ci` graph's own browser cohorts never
+    reuse a stack (22 stacks in `p6-6-ci01`), and the row is not in `check`,
+    so `check` does not exercise a reset. (Corrected 2026-11-27: an earlier
+    version of this note counted only the graph's own stacks and said no row
+    ran the path.)
   - The 26 binary-consuming rows now re-run when their binary's code
     changes, and the server and operator rows also when the frontend
     changes. That is the price of an exact key.
