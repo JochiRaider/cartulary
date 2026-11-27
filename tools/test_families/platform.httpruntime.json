@@ -46,6 +46,7 @@
           "TestServeCancelledBeforeListenDoesNotBind",
           "TestServeForcesCloseAfterShutdownTimeout",
           "TestServeInheritedListenerAndGracefulCancellation",
+          "TestServeLogsConnectionErrorsAsStructuredRecords",
           "TestServeOrdinaryListenerReportsEffectiveAddress",
           "TestServeRejectsInheritedNonListenerFD",
           "TestServeRejectsMalformedAndClosedInheritedFD",

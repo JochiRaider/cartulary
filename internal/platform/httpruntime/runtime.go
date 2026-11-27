@@ -79,6 +79,11 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 		Addr:              listener.Addr().String(),
 		Handler:           handler,
 		ReadHeaderTimeout: options.ReadHeaderTimeout,
+		// The server's own connection errors, such as a client that drops a
+		// TLS handshake, are structured log records. The standard logger would
+		// write them as raw lines on stderr, which carries only the process's
+		// safe diagnostic (AC-604).
+		ErrorLog: slog.NewLogLogger(options.Logger.Handler(), slog.LevelWarn),
 	}
 	if inherited {
 		options.Logger.Info("serving cartulary bootstrap server on inherited listener", "addr", server.Addr)

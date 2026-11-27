@@ -1,10 +1,12 @@
 package httpruntime
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	tlstest "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
 	"io"
+	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -352,4 +354,49 @@ func TestServeRejectsMissingTLSBeforePublication(t *testing.T) {
 		t.Fatalf("rejected listener retained: %v", err)
 	}
 	_ = probe.Close()
+}
+
+// A connection error the HTTP server reports, such as a client that closes
+// during the TLS handshake, is a structured log record and never reaches the
+// standard logger, whose raw lines would precede the process's single safe
+// diagnostic on stderr (AC-604).
+func TestServeLogsConnectionErrorsAsStructuredRecords(t *testing.T) {
+	var standard bytes.Buffer
+	previous := log.Writer()
+	log.SetOutput(&standard)
+	defer log.SetOutput(previous)
+	identity := tlstest.NewServer(t, "127.0.0.1")
+	ctx, cancel := context.WithCancel(context.Background())
+	var output synchronizedBuffer
+	done := make(chan error, 1)
+	go func() {
+		done <- Serve(ctx, http.NotFoundHandler(), Options{TLS: identity.TLS, Address: "127.0.0.1:0", Logger: slog.New(slog.NewTextHandler(&output, nil))})
+	}()
+	effective := regexp.MustCompile(`addr=127\.0\.0\.1:([1-9][0-9]*)`)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && !effective.MatchString(output.String()) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	match := effective.FindStringSubmatch(output.String())
+	if match == nil {
+		t.Fatalf("the server did not log its address: %q", output.String())
+	}
+	connection, err := net.DialTimeout("tcp", "127.0.0.1:"+match[1], 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = connection.Close()
+	for time.Now().Before(deadline) && !strings.Contains(output.String(), "TLS handshake error") {
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	if err := waitServe(t, done); err != nil {
+		t.Fatalf("shutdown: %v", err)
+	}
+	if got := output.String(); !strings.Contains(got, `level=WARN msg="http: TLS handshake error from 127.0.0.1:`) {
+		t.Fatalf("the handshake error is not a structured warning: %q", got)
+	}
+	if standard.Len() != 0 {
+		t.Fatalf("the standard logger received %q", standard.String())
+	}
 }

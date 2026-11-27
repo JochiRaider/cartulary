@@ -73,12 +73,22 @@ func TestOrdinaryShutdownAC604_Process(t *testing.T) {
 				t.Fatal(err)
 			}
 			request.Header.Set("Content-Type", "application/json")
+			// The body follows only the server's 100 Continue, which it sends
+			// when the handler first reads the body. Once the first body
+			// write returns, the request is in the handler. Without this the
+			// stop could arrive while the server had not yet read the request,
+			// and the drain, finding nothing in flight, would end at once.
+			request.Header.Set("Expect", "100-continue")
 			for _, option := range auth {
 				option(request)
 			}
+			transport := server.Client.Transport.(*http.Transport).Clone()
+			transport.ExpectContinueTimeout = 30 * time.Second
+			defer transport.CloseIdleConnections()
+			client := &http.Client{Transport: transport, Timeout: server.Client.Timeout}
 			inFlight := make(chan error, 1)
 			go func() {
-				resp, err := server.Client.Do(request)
+				resp, err := client.Do(request)
 				if resp != nil {
 					_ = resp.Body.Close()
 				}
