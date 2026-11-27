@@ -2629,6 +2629,73 @@ they claim none of the reserved resources.
   into P4-7's final validation, and the stress condition keeps the 13.10
   baseline.
 
+### 13.16 Validation and Handoff (P4-7, in progress)
+
+P4-7 validates Phases 4 and 5 together with a paired `check` and a paired
+`ci` under the Section 9 protocol (`CARTULARY_OUTPUT_MODE=ci`, basic
+diagnostics, cache off, sequential, idle host). No `ci` had run since P4-6,
+so the `ci`-only rows were proven on segments first.
+
+- **Segment (`p123`).** Every step passed under `ci`'s settings:
+  - the 171 non-browser `ci`-only rows, as 27 owner slices; the harness
+    owners' `full`-tier rows had passed in `p121`;
+  - the complete accessibility suite (57 rows);
+  - the smallest group of each other browser suite.
+- **Paired `check` at `4dd0b3b98`.** `p47-check01` and `p47-check02` passed
+  all 1,899 rows in 538 s and 544 s graphs (548 s and 557 s outer).
+- **`p47-ci01`: one failure.** `module.workbook.browser.entity_find_editing`
+  failed in the same step as the release tracker's ninth attempt.
+  - **Cause.** Every saved edit is followed by a re-read of the view. Its
+    rows arrived after the Find status already showed the matches, and the
+    rescan they started ignored the Enter press that landed during it. The
+    trace shows the re-read completing at +911 ms and Enter pressed between
+    +897 ms and +924 ms. Navigation is unavailable during recomputation by
+    design, so `9d431d604`'s wait for the status could not close this window.
+  - **Fix (`5b50fefb7`).** Both Find specs navigate through one support
+    helper that repeats the keystroke until the panel collapses. An ignored
+    keystroke has no effect, and an Enter that never navigates still fails
+    at the 10 s bound.
+  - **Proof (`p124`).** The 20 Find rows pass under `ci`'s settings, and the
+    editing row passes `REPEAT=10` under mixed load.
+- **`p47-ci02`: two failures.**
+  - **`public_registry_parity`.** It failed in the cleanup cancellation
+    test. The row then failed 6 of 10 runs under stress (`p125`), and the
+    stress runs exposed two defects:
+    - **Vitest teardown attribution.** Depending on when a fork's teardown
+      settles, Vitest also reports a file's environment-teardown error as an
+      unhandled runner error. The invocation treated it as a run failure,
+      stopped before the next file and marked every row
+      `infrastructure_failed`. It now drops a run-scope error identical to
+      the file's teardown error and records it once, for that file.
+    - **Three races in the cleanup test.** It read the interrupt barrier
+      before the shell finished writing it. It read stderr on `exit`,
+      before the stream drained. It required the killed sleeper to be a
+      zombie in the window after it closes its files.
+
+    Fixed in `e02cece8b`. The row passes `REPEAT=10` under mixed load
+    (`p129`), and so does the whole `harness.browser` owner. A first theory,
+    a fixed 30 s spawn guard, was wrong and was reverted.
+  - **`module.workbook.accessibility.timeline_capture_actions`.** Confirm on
+    a reviewed Timeline supersession reported "needs another review. No
+    action was sent" (`preparation_failed`) within 300 ms. The preparation's
+    replacement-row read returned 200. The binding then checks several
+    things, and the trace records none of them, so the failed check is
+    unknown:
+    - the editor's origin and its generation;
+    - the open inspector and selected row;
+    - drafts and pending history;
+    - the row versions.
+
+    Earlier in the same test, the same preparation passed after Review.
+    Between the two came viewport changes, 200% zoom, text spacing and an
+    axe audit. The row passed 10 of 10 under mixed load (`p125`) and in
+    `p47-ci01` and `p123`. Undiagnosed.
+- **Remaining.**
+  - Decide how to handle the Timeline capture failure.
+  - Run the paired `check` and paired `ci` on the final commit: the Vitest
+    fix changes every Vitest row.
+  - Refresh Section 3.
+
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
 
 Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14.5, 14.6, 14.22); P5-4 done (14.7 to 14.21, 14.23); P5-3 planned (14.24).
