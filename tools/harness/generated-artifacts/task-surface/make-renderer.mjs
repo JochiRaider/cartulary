@@ -151,7 +151,7 @@ export function taskSurfaceMakeDensity(manifest, producers = checkoutProducers()
     combined_bytes: Buffer.byteLength(bindings) + Buffer.byteLength(runtime),
     maximum_line_bytes: Math.max(maximumLineBytes(bindings), maximumLineBytes(runtime)),
     repeated_origin_transport_count: bindings.split(
-      ["CARTULARY_MAKE", "ORIGIN", ""].join("_"),
+      ["CARTULARY", "MAKE", "ORIGIN", ""].join("_"),
     ).length - 1,
     repeated_input_value_expansion_count: (bindings.match(/\$\([A-Z][A-Z0-9_]+\)/g) ?? []).length,
     synthetic_target_count: 25,

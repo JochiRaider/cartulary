@@ -6,34 +6,13 @@ import { handleRunSummary } from "./run-summary.mjs";
 import { handleSharedExecution } from "./shared-execution.mjs";
 import { handleTargetSummary } from "./target-summary.mjs";
 import { handleTimingSpan } from "./timing.mjs";
-import { handleGoStep } from "./runners/go.mjs";
-import { handlePlaywrightStep } from "./runners/playwright.mjs";
 import { handleShellStep } from "./runners/shell.mjs";
-import { handleVitestStep } from "./runners/vitest.mjs";
 
 function main() {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
     case "shell-step":
       process.exit(handleShellStep());
-      break;
-    case "go-step":
-      process.exit(handleGoStep({ catalogAware: false }));
-      break;
-    case "go-catalog-step":
-      process.exit(handleGoStep({ catalogAware: true }));
-      break;
-    case "vitest-step":
-      process.exit(handleVitestStep({ catalogAware: false }));
-      break;
-    case "vitest-catalog-step":
-      process.exit(handleVitestStep({ catalogAware: true }));
-      break;
-    case "playwright-step":
-      process.exit(handlePlaywrightStep({ catalogAware: false }));
-      break;
-    case "playwright-catalog-step":
-      process.exit(handlePlaywrightStep({ catalogAware: true }));
       break;
     case "go-json-stream":
       process.exit(handleGoJSONStream());

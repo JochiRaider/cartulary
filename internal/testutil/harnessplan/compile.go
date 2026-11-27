@@ -444,7 +444,6 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 			unit.OwnerID = rows[0].OwnerID
 		}
 		unit.Command.Args = []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", strings.Join(ids, ",")}
-		unit.Command.Environment["CARTULARY_TEST_ROWS"] = strings.Join(ids, ",")
 	}
 	c.lock(unit, policy.ResourceProfileID)
 	c.units[unitID] = unit

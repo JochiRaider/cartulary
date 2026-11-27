@@ -3,24 +3,24 @@
 # shellcheck source=tools/workspace_layout.generated.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
 
-CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED=0
-CARTULARY_LIFECYCLE_SHUTDOWN_SIGNAL=""
-CARTULARY_LIFECYCLE_ACQUISITION_DEPTH=0
-declare -Ag CARTULARY_LIFECYCLE_PIDS=()
-declare -Ag CARTULARY_LIFECYCLE_RESULTS=()
+_lifecycle_shutdown_requested=0
+_lifecycle_shutdown_signal=""
+_lifecycle_acquisition_depth=0
+declare -Ag _lifecycle_pids=()
+declare -Ag _lifecycle_results=()
 
 lifecycle_reset_shutdown_state() {
-  CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED=0
-  CARTULARY_LIFECYCLE_SHUTDOWN_SIGNAL=""
+  _lifecycle_shutdown_requested=0
+  _lifecycle_shutdown_signal=""
 }
 
 lifecycle_request_shutdown() {
   local signal_name="${1:-TERM}"
 
-  if [[ "${CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED}" -eq 0 ]]; then
-    CARTULARY_LIFECYCLE_SHUTDOWN_SIGNAL="${signal_name}"
+  if [[ "${_lifecycle_shutdown_requested}" -eq 0 ]]; then
+    _lifecycle_shutdown_signal="${signal_name}"
   fi
-  CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED=1
+  _lifecycle_shutdown_requested=1
 }
 
 lifecycle_exit_on_signal() {
@@ -30,7 +30,7 @@ lifecycle_exit_on_signal() {
   lifecycle_request_shutdown "${signal_name}"
   # Publish or settle an in-flight native acquisition before the exit trap can
   # release dependencies. Parent-loss cleanup remains the native fallback.
-  if [[ "${CARTULARY_LIFECYCLE_ACQUISITION_DEPTH}" -gt 0 ]]; then return 0; fi
+  if [[ "${_lifecycle_acquisition_depth}" -gt 0 ]]; then return 0; fi
   exit_status="$(lifecycle_signal_exit_status)"
   exit "${exit_status}"
 }
@@ -41,11 +41,11 @@ lifecycle_install_signal_traps() {
 }
 
 lifecycle_shutdown_requested() {
-  [[ "${CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED}" -eq 1 ]]
+  [[ "${_lifecycle_shutdown_requested}" -eq 1 ]]
 }
 
 lifecycle_signal_name() {
-  printf '%s\n' "${CARTULARY_LIFECYCLE_SHUTDOWN_SIGNAL:-TERM}"
+  printf '%s\n' "${_lifecycle_shutdown_signal:-TERM}"
 }
 
 lifecycle_signal_exit_status() {
@@ -76,9 +76,9 @@ lifecycle_native() {
 
 start_owned_command() {
   local lifecycle_status=0
-  CARTULARY_LIFECYCLE_ACQUISITION_DEPTH=$((CARTULARY_LIFECYCLE_ACQUISITION_DEPTH + 1))
+  _lifecycle_acquisition_depth=$((_lifecycle_acquisition_depth + 1))
   lifecycle_acquire_owned_command "$@" || lifecycle_status=$?
-  CARTULARY_LIFECYCLE_ACQUISITION_DEPTH=$((CARTULARY_LIFECYCLE_ACQUISITION_DEPTH - 1))
+  _lifecycle_acquisition_depth=$((_lifecycle_acquisition_depth - 1))
   if lifecycle_shutdown_requested; then return "$(lifecycle_signal_exit_status)"; fi
   return "${lifecycle_status}"
 }
@@ -104,7 +104,7 @@ lifecycle_acquire_owned_command() {
     ) &
   fi
   if observed_pid="$(lifecycle_native ready "${acquired_handle}")"; then
-    CARTULARY_LIFECYCLE_PIDS["${acquired_handle}"]="${observed_pid}"
+    _lifecycle_pids["${acquired_handle}"]="${observed_pid}"
     printf -v "${outvar}" '%s' "${acquired_handle}"
   else
     status=$?
@@ -121,36 +121,36 @@ lifecycle_acquire_owned_command() {
 owned_command_pid() {
   local command_handle="${1:-}"
   [[ -n "${command_handle}" ]] || return 12
-  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
-  printf '%s\n' "${CARTULARY_LIFECYCLE_PIDS[$command_handle]}"
+  [[ -n "${_lifecycle_pids[$command_handle]:-}" ]] || return 12
+  printf '%s\n' "${_lifecycle_pids[$command_handle]}"
 }
 
 owned_command_running() {
   local command_handle="${1:-}"
   [[ -n "${command_handle}" ]] || return 1
-  if [[ -n "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]+present}" ]]; then return 1; fi
-  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  if [[ -n "${_lifecycle_results[$command_handle]+present}" ]]; then return 1; fi
+  [[ -n "${_lifecycle_pids[$command_handle]:-}" ]] || return 12
   lifecycle_native running "${command_handle}"
 }
 
 owned_command_result() {
   local command_handle="${1:-}"
   [[ -n "${command_handle}" ]] || return 12
-  if [[ -n "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]+present}" ]]; then
-    return "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]}"
+  if [[ -n "${_lifecycle_results[$command_handle]+present}" ]]; then
+    return "${_lifecycle_results[$command_handle]}"
   fi
-  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  [[ -n "${_lifecycle_pids[$command_handle]:-}" ]] || return 12
   lifecycle_native result "${command_handle}"
 }
 
 stop_owned_command() {
   local command_handle="${1:-}" native_status=0
   [[ -n "${command_handle}" ]] || return 0
-  if [[ -n "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]+present}" ]]; then return 0; fi
-  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  if [[ -n "${_lifecycle_results[$command_handle]+present}" ]]; then return 0; fi
+  [[ -n "${_lifecycle_pids[$command_handle]:-}" ]] || return 12
   lifecycle_native stop "${command_handle}" || return $?
   lifecycle_native result "${command_handle}" || native_status=$?
   lifecycle_native release "${command_handle}" || return $?
-  CARTULARY_LIFECYCLE_RESULTS["${command_handle}"]="${native_status}"
-  unset 'CARTULARY_LIFECYCLE_PIDS[$command_handle]'
+  _lifecycle_results["${command_handle}"]="${native_status}"
+  unset '_lifecycle_pids[$command_handle]'
 }

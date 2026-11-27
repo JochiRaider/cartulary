@@ -368,10 +368,9 @@ func (c *compiler) fixtureBuilder(fixture *rowFixture, stack []string) (string, 
 		FixtureProfileID: profile, SnapshotKey: fixture.key,
 		Command: Command{Executable: "node", Args: []string{snapshotBuilderCLI, "--fixture-profile", profile, "--snapshot-key", fixture.key},
 			Environment: browserbinding.Binding{RuntimeProfile: builder.RuntimeProfileID, FixtureProfile: profile, SnapshotKey: fixture.key, SnapshotBuilderUnit: id}.Apply(map[string]string{
-				"CARTULARY_FIXTURE_BUILDER_RESOURCE_PROFILE_ID": builder.ResourceProfileID,
-				"CARTULARY_FIXTURE_MIGRATION_DIGEST":            c.in.MigrationDigest,
-				"CARTULARY_FIXTURE_SOURCE_CONTRACT_DIGEST":      fixture.profile.SourceContractDigest,
-				clusterKeyEnvironment:                           fixture.cluster,
+				"CARTULARY_FIXTURE_MIGRATION_DIGEST":       c.in.MigrationDigest,
+				"CARTULARY_FIXTURE_SOURCE_CONTRACT_DIGEST": fixture.profile.SourceContractDigest,
+				clusterKeyEnvironment:                      fixture.cluster,
 			})},
 	}
 	return id, nil

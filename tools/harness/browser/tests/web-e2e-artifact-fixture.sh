@@ -55,8 +55,6 @@ export CARTULARY_PLAYWRIGHT_STATE_DIR="$runtime_root/playwright-state"
 
 export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$private_suite_root"
 export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$run_id"
-export CARTULARY_WEB_E2E_SERVER_LOG="$private_session_root/logs/server.log"
-export CARTULARY_WEB_E2E_WEB_LOG="$private_session_root/logs/web.log"
 export CARTULARY_WEB_E2E_API_ORIGIN=https://127.0.0.1:38080
 export CARTULARY_WEB_E2E_PUBLIC_ORIGIN=https://127.0.0.1:34173
 export CARTULARY_WEB_E2E_BACKEND_PORT=38080

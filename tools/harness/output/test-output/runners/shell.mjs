@@ -67,10 +67,6 @@ function requiredEnv(name) {
   return value;
 }
 
-function optionalEnv(name, fallback = "") {
-  return process.env[name] ?? fallback;
-}
-
 function splitLogLines(file) {
   if (!file || !existsSync(file)) {
     return [];
@@ -94,10 +90,6 @@ function removeEmptyArtifact(file) {
   if (stat.size === 0) {
     rmSync(file, { force: true });
   }
-}
-
-function catalogOwnerFromEnvironment() {
-  return optionalEnv("CARTULARY_CATALOG_OWNER_ID");
 }
 
 export function firstActionableLine(lines) {
@@ -560,7 +552,7 @@ export function handleShellStep() {
   if (context.exitStatus === 0) {
     return finalizeShellStep(context, stdoutLog, stderrLog, {
       status: "pass",
-      step: catalogOwnerFromEnvironment(),
+      step: "",
       counts: {
         ...createCounts(),
       },
@@ -580,11 +572,7 @@ export function handleShellStep() {
     firstActionableLine(stderrLines) ||
     firstActionableLine(stdoutLines) ||
     `command exited with status ${context.exitStatus}`;
-  const failureNote = optionalEnv("CARTULARY_STEP_FAILURE_NOTE");
-  let message =
-    failureNote === ""
-      ? messageBase
-      : `${messageBase} | remediation: ${failureNote}`;
+  let message = messageBase;
   const failureDetails = classifyShellFailureDetails(
     context,
     stdoutLines,
@@ -596,7 +584,7 @@ export function handleShellStep() {
   }
   return finalizeShellStep(context, stdoutLog, stderrLog, {
     status: "fail",
-    step: catalogOwnerFromEnvironment(),
+    step: "",
     counts: {
       ...createCounts(),
       failed: 1,
@@ -610,7 +598,7 @@ export function handleShellStep() {
         failure_class: failureDetails.failure_class,
         failure_reason: failureDetails.failure_reason,
         coverage: "non_test",
-        step: catalogOwnerFromEnvironment(),
+        step: "",
         id: "",
         runner: "shell",
         package_or_file: "(shell command)",

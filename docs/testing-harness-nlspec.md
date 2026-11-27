@@ -4254,10 +4254,10 @@ underscore after the prefix) that harness code mentions MUST be a public input
 the task surface declares or be registered in
 `tools/harness_environment_registry.json` with exactly one role:
 `fixture_binding`, `invocation_context`, `location`, `product_derived`,
-`product_interface`, `step_runtime`, `test_internal` or `tool_option`. There is
+`product_interface`, `step_runtime` or `tool_option`. There is
 no mode-switch role: a flag that changes what a command does is an argument,
 or run context with one owner (amended 2026-11-27, P6-2). The
-registry names the harness and excluded path scopes. Every other admitted
+registry names the harness, test and excluded path scopes. Every other admitted
 repository path is product code, and the product owns its `CARTULARY__*`
 configuration and the names only product code mentions. A registered name that
 no harness code mentions is stale. A name that both harness and product code
@@ -4267,12 +4267,24 @@ name it derives from a service or secret reference, such as an object-store
 endpoint or a key-ring secret, so product code never spells it (amended
 2026-11-26). Like a `product_interface`, any launcher may set it for the product
 process it starts.
-`harness.environment_registry_check` enforces these rules in `check`, `ci` and
+
+A name that only test sources mention, such as a mode a test passes to its own
+child process, is test-local: its tests own it and it is not registered
+(amended 2026-11-27, P6-4). Test sources are the registry's test scope: test
+files and the fixtures only they run. Once product code or harness code outside
+the test scope mentions the name, including a unit command in the work graph
+owner, it needs a role, so a test's name never reaches harness code or a unit
+environment unregistered. A name exists only where a value crosses a process
+boundary between different programs, with a writer and a reader, or where it
+is a declared public, product or operator input: a value one process writes
+and reads is a variable, and an option nobody sets is removed; review applies
+this rule. `harness.environment_registry_check` enforces the scope, role and
+staleness rules in `check`, `ci` and
 `make source-check` (`CHECK=surface` and `CHECK=all`).
 
 A unit inherits only declared names from the environment its graph starts in
 (default-deny, amended 2026-11-26). The declared names are the registered names
-outside the `product_derived`, `product_interface` and `test_internal` roles, the registry's
+outside the `product_derived` and `product_interface` roles, the registry's
 `inherited` process and tool names and name prefixes (such as `PATH`, `HOME`,
 locale, proxy, Docker and Go module-network settings), the task surface's
 global inputs, and the Make variables that operation executions name, which the

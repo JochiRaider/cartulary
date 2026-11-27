@@ -24,9 +24,10 @@ type EnvironmentRegistry struct {
 
 // uninheritedRoles never legitimately come from a graph's starting
 // environment: product configuration the harness sets for product processes,
-// whether product code names it or derives its name, and names a test sets for
-// its own children. An operator's shell must not supply any of them to a unit.
-var uninheritedRoles = map[string]bool{"product_derived": true, "product_interface": true, "test_internal": true}
+// whether product code names it or derives its name. An operator's shell must
+// not supply any of them to a unit. A test's own names are not registered, so
+// a unit never inherits them either.
+var uninheritedRoles = map[string]bool{"product_derived": true, "product_interface": true}
 
 // operationBinding is a named Make variable an operation's execution uses;
 // the operation runner resolves each one from its environment.

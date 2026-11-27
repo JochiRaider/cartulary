@@ -3147,11 +3147,9 @@
         "mode": "run_step",
         "step_label": "harness-ui-review-seeded-default",
         "command": [
-          "env",
-          "CARTULARY_UI_REVIEW_TEST_PROFILE=default",
           "$(NODE_BIN)",
           "--test",
-          "./tools/harness/browser/tests/test-ui-review-seeded.mjs"
+          "./tools/harness/browser/tests/test-ui-review-seeded-default.mjs"
         ],
         "test_target": "self"
       },
@@ -3169,11 +3167,9 @@
         "mode": "run_step",
         "step_label": "harness-ui-review-seeded-network-flow-claimed",
         "command": [
-          "env",
-          "CARTULARY_UI_REVIEW_TEST_PROFILE=network_flow_claimed",
           "$(NODE_BIN)",
           "--test",
-          "./tools/harness/browser/tests/test-ui-review-seeded.mjs"
+          "./tools/harness/browser/tests/test-ui-review-seeded-network-flow-claimed.mjs"
         ],
         "test_target": "self"
       },

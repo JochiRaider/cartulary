@@ -26,7 +26,7 @@ function fixture(t, files) {
 function registry(roles = {}, owners = {}) {
   return {
     schema_id: "cartulary.harness_environment_registry.v1",
-    scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**", "**/*_test.go"] },
+    scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**"], tests: ["**/*_test.go", "**/tests/**"] },
     inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] },
     budget: ["GOMAXPROCS"],
     explicit_launchers: ["tools/launcher.go", "tools/launcher.mjs"],
@@ -81,6 +81,29 @@ test("a name both sides mention must be a product interface, and only then", (t)
   ]);
 });
 
+test("a name only tests mention is test-local and unregistered; elsewhere it needs a role", (t) => {
+  const { root, paths } = fixture(t, {
+    "tools/tests/test-child.mjs": `spawn(node, [child], { env: { ${name("CHILD_MODE")}: "fail", ${name("REGISTERED_LOCAL")}: "1", ${name("LEAKED")}: "1", ${name("RENDER_PORT")}: "0" } });\n`,
+    "internal/x/child_test.go": `os.Getenv("${name("CHILD_MODE")}")\n`,
+    // A unit command that sets a test's name crosses into harness code.
+    "tools/harness_work_graph_owner.json": `{"command": ["env", "${name("LEAKED")}=1", "node"]}\n`,
+    "internal/reporting/render.go": `os.Getenv("${name("RENDER_PORT")}")\n`,
+  });
+  const result = inspectEnvironmentRegistry(root, {
+    registry: registry({ tool_option: [name("REGISTERED_LOCAL")] }),
+    declared: new Set(),
+    paths,
+  });
+  assert.deepEqual(result.findings, [
+    `${name("LEAKED")} is unregistered (first harness mention: tools/harness_work_graph_owner.json)`,
+    `${name("REGISTERED_LOCAL")} is test-local (only tests mention it, first: tools/tests/test-child.mjs); remove it from roles.tool_option`,
+    // A name product code reads is a product interface even when only a test sets it.
+    `${name("RENDER_PORT")} is unregistered (first harness mention: tools/tests/test-child.mjs)`,
+  ]);
+  assert.equal(result.summary.test_local, 2);
+  assert.equal(result.summary.harness_names, 2);
+});
+
 test("a name has one role and a declared input is not registered again", (t) => {
   const { root, paths } = fixture(t, { "tools/a.sh": `${name("TWICE")} ${name("PUBLIC")}\n` });
   const result = inspectEnvironmentRegistry(root, {
@@ -108,6 +131,7 @@ test("the registry's shape is closed and inherited names are not harness names",
   const valid = { ...registry(), inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] } };
   assert.doesNotThrow(() => readEnvironmentRegistry(write(valid)));
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited, budget, explicit_launchers, owners and roles/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, scopes: { excluded: [], harness: ["tools/**"] } })), /scopes must hold exactly excluded, harness and tests/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, budget: [name("CPU_TOKENS")] })), /budget entry .* is not a valid name/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: ["GOMAXPROCS", "HOME"], prefixes: [] } })), /GOMAXPROCS is a budget name; remove it from inherited\.names/u);
   const owner = (names) => ({ paths: ["tools/owner/**"], names });

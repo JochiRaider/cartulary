@@ -175,7 +175,7 @@ export function registerCommandFailureTests() {
   test("canonical shell row preserves artifact diagnostics and removes private captures", (t) => {
     const { scratch, runtime, runRoot, environment } = setup(t);
     const rowID = "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b";
-    const env = {...process.env, ...environment, CARTULARY_TEST_ROWS: rowID, CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability",
+    const env = {...process.env, ...environment, CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability",
       CARTULARY_HARNESS_SERVICE_DEPENDENCIES: "", CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]"};
     const launch = createLaunchContext({ repoRoot: root, environment: env, commandID: "cartulary.harness.command.lint.v3", producer: "unit" });
     Object.assign(env, launch.environment);

@@ -9,16 +9,11 @@ const mode = args.has("--json")
     ? "require"
     : "advisory";
 
-const minimumWatches = positiveIntEnv("CARTULARY_INOTIFY_MIN_USER_WATCHES", 524288);
-const minimumInstances = positiveIntEnv("CARTULARY_INOTIFY_MIN_USER_INSTANCES", 1024);
-const recommendedWatches = positiveIntEnv(
-  "CARTULARY_INOTIFY_RECOMMENDED_USER_WATCHES",
-  1048576,
-);
-const recommendedInstances = positiveIntEnv(
-  "CARTULARY_INOTIFY_RECOMMENDED_USER_INSTANCES",
-  1024,
-);
+// The watch capacity the development stack needs, and what it recommends.
+const minimumWatches = 524288;
+const minimumInstances = 1024;
+const recommendedWatches = 1048576;
+const recommendedInstances = 1024;
 
 const diagnostics = collectDiagnostics();
 const failures = [];
@@ -171,11 +166,6 @@ function readIntFile(file) {
   } catch {
     return undefined;
   }
-}
-
-function positiveIntEnv(name, fallback) {
-  const parsed = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function valueOrUnknown(value) {

@@ -36,7 +36,6 @@ import {
   resolveResultsRoot,
   resolveRunId,
   timingBucketSet,
-  validStepCountingModes,
 } from "../../contract/test-output-context.mjs";
 import { loadGovulncheckFindingsFile } from "./security-diagnostics.mjs";
 
@@ -82,20 +81,6 @@ function clampDurationMs(value) {
     return 0;
   }
   return value;
-}
-
-function normalizeAccountingMode(value) {
-  if (value === "actual" || value === "reused" || value === "derived") {
-    return value;
-  }
-  return "actual";
-}
-
-function normalizeStepCountingMode(value) {
-  if (validStepCountingModes.has(value)) {
-    return value;
-  }
-  return "counted";
 }
 
 function resolveOutputMode() {
@@ -173,23 +158,11 @@ function finalizeLine(summary) {
 export function createBaseStepContext(runner) {
   const stepDir = requiredEnv("CARTULARY_STEP_DIR");
   ensureDir(stepDir);
-  const accountingMode =
-    optionalEnv("CARTULARY_REPORT_SLICE") === "1"
-      ? normalizeAccountingMode(
-          optionalEnv("CARTULARY_STEP_ACCOUNTING_MODE", "actual"),
-        )
-      : "actual";
-  const countingMode = normalizeStepCountingMode(
-    optionalEnv("CARTULARY_STEP_COUNTING_MODE", "counted"),
-  );
   const logicalDurationMs = clampDurationMs(
     parseInteger("CARTULARY_STEP_LOGICAL_DURATION_MS", 0),
   );
   const executedDurationMs = clampDurationMs(
-    parseInteger(
-      "CARTULARY_STEP_EXECUTED_DURATION_MS",
-      accountingMode === "actual" ? logicalDurationMs : 0,
-    ),
+    parseInteger("CARTULARY_STEP_EXECUTED_DURATION_MS", logicalDurationMs),
   );
   return {
     label: requiredEnv("CARTULARY_STEP_LABEL"),
@@ -204,12 +177,13 @@ export function createBaseStepContext(runner) {
     ),
     startTime: requiredEnv("CARTULARY_STEP_START_TIME"),
     endTime: requiredEnv("CARTULARY_STEP_END_TIME"),
-    accountingMode,
-    countingMode,
+    // A shell step's work is its own and always counted.
+    accountingMode: "actual",
+    countingMode: "counted",
     executedDurationMs,
     logicalDurationMs,
-    reusedDurationMs: accountingMode === "reused" ? logicalDurationMs : 0,
-    derivedDurationMs: accountingMode === "derived" ? logicalDurationMs : 0,
+    reusedDurationMs: 0,
+    derivedDurationMs: 0,
     wallDurationMs: clampDurationMs(
       parseInteger("CARTULARY_STEP_WALL_DURATION_MS", logicalDurationMs),
     ),

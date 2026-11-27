@@ -14,10 +14,8 @@ function parseArgs(argv) {
   const options = {
     check: false,
     manifest: process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
-    output: process.env.CARTULARY_TASK_SURFACE_GENERATED_MAKE ?? defaultGeneratedMakePath,
-    runtimeOutput:
-      process.env.CARTULARY_TASK_SURFACE_GENERATED_RUNTIME_MAKE ??
-      defaultGeneratedMakeRuntimePath,
+    output: defaultGeneratedMakePath,
+    runtimeOutput: defaultGeneratedMakeRuntimePath,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];

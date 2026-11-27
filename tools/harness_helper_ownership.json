@@ -36,16 +36,6 @@
       ]
     },
     {
-      "key": "browser_playwright_execution",
-      "boundary_group": "browser",
-      "paths": [
-        "tools/harness/output/test-output/playwright-artifacts.mjs"
-      ],
-      "allowed_consumers": [
-        "tools/harness/output/test-output/playwright-artifacts.mjs"
-      ]
-    },
-    {
       "key": "command_surface_node_tool_dispatch",
       "boundary_group": "command_surface",
       "paths": [

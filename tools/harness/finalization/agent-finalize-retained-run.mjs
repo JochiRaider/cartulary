@@ -28,7 +28,6 @@ function preflightFailure(actionID, reason, failureClass = "artifact") {
 export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, repoRoot, resultsDirInput }, ports = {}) {
   const sourceSnapshot = ports.sourceSnapshot ?? buildSourceSnapshot(repoRoot);
   const loadPlan = ports.loadPlan ?? loadRetainedPlan;
-  const currentIdentity = { source_snapshot_digest: sourceSnapshot.digest };
   const validations = new Map();
   let current;
   function currentContract() {
@@ -154,5 +153,5 @@ export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, re
     return { ok: true, resolved, selection };
   }
 
-  return { baseSelection, currentIdentity() { return { ...currentIdentity }; }, latestSuccessfulCheckRun, validate, validateRetainedRunArtifacts };
+  return { baseSelection, latestSuccessfulCheckRun, validate, validateRetainedRunArtifacts };
 }

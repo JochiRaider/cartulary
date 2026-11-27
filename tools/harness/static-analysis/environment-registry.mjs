@@ -7,7 +7,10 @@ import { executableRepositoryPaths } from "../test-catalog/index.mjs";
 // Every CARTULARY_* variable name that harness code mentions is declared here
 // with one role, or is a public input the task surface already declares. The
 // product owns CARTULARY__* configuration and names that appear only in
-// product code; a name both sides use is a product interface.
+// product code; a name both sides use is a product interface. A name that
+// only test sources mention is test-local: its tests own it and it is not
+// registered (D32), so it never crosses into harness code or a unit's
+// environment.
 
 export const environmentRegistryPath = "tools/harness_environment_registry.json";
 export const environmentRegistrySchemaID = "cartulary.harness_environment_registry.v1";
@@ -23,7 +26,6 @@ export const environmentRoles = Object.freeze([
   "product_derived",
   "product_interface", // a name product code reads that the harness sets
   "step_runtime", // the run-step wrapper's protocol with its child
-  "test_internal", // a name a test sets for its own child process or fixture
   "tool_option", // an operator knob of a harness tool, read with a default
 ]);
 
@@ -83,7 +85,6 @@ function listLoopWrites(lines, name) {
   return writes;
 }
 const writableCode = /\.(?:mjs|cjs|js|ts|tsx|go|sh|bash|mk)$|(?:^|\/)Makefile$/u;
-const testCode = /(?:_test\.go|\.test\.(?:mjs|ts|tsx)|\.spec\.ts)$|\/tests\//u;
 const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u,
   // Go: a child's Env built from os.Environ() rather than childenv.Build.
   /append\(\s*os\.Environ\(\)/u, /range\s+os\.Environ\(\)/u, /\bEnv\s*=\s*os\.Environ\(\)/u];
@@ -139,9 +140,12 @@ export function readEnvironmentRegistry(root) {
   requireStringList(registry.explicit_launchers, "explicit_launchers", { sorted: true });
   if (registry.schema_id !== environmentRegistrySchemaID) throw new Error(`${environmentRegistryPath} schema_id must be ${environmentRegistrySchemaID}`);
   const scopeKeys = Object.keys(registry.scopes ?? {}).sort(asciiCompare);
-  if (JSON.stringify(scopeKeys) !== JSON.stringify(["excluded", "harness"])) throw new Error(`${environmentRegistryPath} scopes must hold exactly excluded and harness`);
+  if (JSON.stringify(scopeKeys) !== JSON.stringify(["excluded", "harness", "tests"])) throw new Error(`${environmentRegistryPath} scopes must hold exactly excluded, harness and tests`);
   requireStringList(registry.scopes.excluded, "scopes.excluded");
   requireStringList(registry.scopes.harness, "scopes.harness");
+  // tests are the test sources inside the harness scope: test files and the
+  // fixtures only they run.
+  requireStringList(registry.scopes.tests, "scopes.tests");
   // inherited holds the process and tool names (and name prefixes) a unit may
   // take from the environment its graph starts in; harness names belong in
   // roles.
@@ -178,16 +182,18 @@ export function declaredInputNames(root) {
 
 // scanEnvironmentNames maps each mentioned name to the harness and product
 // files that mention it. Excluded paths and the registry itself are not read.
+// A test source is a harness file.
 export function scanEnvironmentNames(root, registry, paths = executableRepositoryPaths(root, { untracked: true })) {
   const excluded = registry.scopes.excluded.map(globPattern);
   const harness = registry.scopes.harness.map(globPattern);
+  const tests = registry.scopes.tests.map(globPattern);
   const names = new Map();
   for (const relative of paths) {
     if (relative === environmentRegistryPath || binaryFile.test(relative) || excluded.some((pattern) => pattern.test(relative))) continue;
     let text;
     try { text = readFileSync(path.join(root, relative), "utf8"); }
     catch (error) { if (error.code === "ENOENT" || error.code === "EISDIR") continue; throw error; }
-    const side = harness.some((pattern) => pattern.test(relative)) ? "harness" : "product";
+    const side = [...harness, ...tests].some((pattern) => pattern.test(relative)) ? "harness" : "product";
     for (const name of new Set(text.match(namePattern) ?? [])) {
       if (!names.has(name)) names.set(name, { harness: new Set(), product: new Set() });
       names.get(name)[side].add(relative);
@@ -203,6 +209,11 @@ export function inspectEnvironmentRegistry(root, {
   paths,
 } = {}) {
   const mentions = scanEnvironmentNames(root, registry, paths);
+  const tests = registry.scopes.tests.map(globPattern);
+  const testSource = (relative) => tests.some((pattern) => pattern.test(relative));
+  // A test-local name is mentioned by test sources alone, never by product
+  // code or other harness code.
+  const testLocal = (sides) => sides.product.size === 0 && sides.harness.size > 0 && [...sides.harness].every(testSource);
   const roleOf = new Map();
   const findings = [];
   for (const role of environmentRoles) {
@@ -216,7 +227,14 @@ export function inspectEnvironmentRegistry(root, {
     if (sides.harness.size === 0) continue;
     const role = roleOf.get(name);
     const first = (set) => [...set].sort(asciiCompare)[0];
-    if (!role && !declared.has(name)) findings.push(`${name} is unregistered (first harness mention: ${first(sides.harness)})`);
+    if (testLocal(sides)) {
+      if (role) findings.push(`${name} is test-local (only tests mention it, first: ${first(sides.harness)}); remove it from roles.${role}`);
+      continue;
+    }
+    // Once harness code outside the tests mentions a name, it is no longer
+    // the tests' own and needs a role.
+    const outside = [...sides.harness].filter((relative) => !testSource(relative));
+    if (!role && !declared.has(name)) findings.push(`${name} is unregistered (first harness mention: ${first(outside.length > 0 ? outside : sides.harness)})`);
     if (role === "product_interface" && sides.product.size === 0) findings.push(`${name} is a product_interface that no product code mentions`);
     if (role && role !== "product_interface" && sides.product.size > 0) findings.push(`${name} is ${role} but product code mentions it (${first(sides.product)})`);
   }
@@ -224,7 +242,7 @@ export function inspectEnvironmentRegistry(root, {
     if ((mentions.get(name)?.harness.size ?? 0) === 0) findings.push(`${name} (${role}) is stale: no harness code mentions it`);
   }
   const ownerOf = new Map(Object.entries(registry.owners).flatMap(([component, owner]) => owner.names.map((name) => [name, { component, paths: owner.paths.map(globPattern) }])));
-  const outsideOwner = (relative, name) => writableCode.test(relative) && !testCode.test(relative) && !ownerOf.get(name).paths.some((pattern) => pattern.test(relative));
+  const outsideOwner = (relative, name) => writableCode.test(relative) && !testSource(relative) && !ownerOf.get(name).paths.some((pattern) => pattern.test(relative));
   const writeFinding = (relative, index, name) => `${relative}:${index + 1} writes ${name}, which ${ownerOf.get(name).component} owns; call its function or forward the name`;
   const constants = new Map();
   for (const [name] of ownerOf) {
@@ -266,7 +284,8 @@ export function inspectEnvironmentRegistry(root, {
   const summary = {
     registered: roleOf.size,
     declared_inputs: [...declared].filter((name) => exactName.test(name)).length,
-    harness_names: [...mentions.values()].filter((sides) => sides.harness.size > 0).length,
+    harness_names: [...mentions.values()].filter((sides) => sides.harness.size > 0 && !testLocal(sides)).length,
+    test_local: [...mentions.values()].filter(testLocal).length,
     roles: Object.fromEntries(environmentRoles.map((role) => [role, registry.roles[role].length])),
   };
   return { findings: findings.sort(asciiCompare), summary };

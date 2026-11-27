@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:1d88fbd216d7f8e4a2d69a8715762682a1ff91d5aa4305f8157c6b9be503a27d",
+  "input_digest": "sha256:9366d6d8440d33ebe83311d54561d8544d31c70feadfe76c6a483256fae49ca3",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -497,7 +497,7 @@
     {
       "path": "tools/harness/browser/browser-session-evidence.mjs",
       "role": "renderer_source",
-      "hash": "sha256:af7451c76fee83ec34551358f62c4fa6aeb9b1ce772ee1d1518e38ccfb33c0bb"
+      "hash": "sha256:c766406957d7a3a715507368705ae7458d929f46f0e9c5f638140e9ec5745fb9"
     },
     {
       "path": "tools/harness/browser/browser-target-finalizer-cli.mjs",
@@ -577,12 +577,7 @@
     {
       "path": "tools/harness/browser/playwright-report.mjs",
       "role": "renderer_source",
-      "hash": "sha256:06dd715e815dcfb9b4c921306a2e82f3b0d90515aedc5a857fdf5980784095e6"
-    },
-    {
-      "path": "tools/harness/browser/playwright-selection.mjs",
-      "role": "renderer_source",
-      "hash": "sha256:a48d2523954031c11f09809b60c71cb0be4aef6e7c3a59c2d081d8a0cc2db009"
+      "hash": "sha256:1ab6f429d0871492bf6dc0b5c883f88d509599b403619efd7d5a337870fa5023"
     },
     {
       "path": "tools/harness/browser/private-state.mjs",
@@ -857,7 +852,7 @@
     {
       "path": "tools/harness/contract/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6e43ee226ab4c599cf5d64fa47d5e7920137a23e45863ef0f9954b26612a7cf8"
+      "hash": "sha256:d59a81ed3d0173889ecbe8701825926fbe0ca1275afc9bd1a271285a9cb3ca8c"
     },
     {
       "path": "tools/harness/contract/index.mjs",
@@ -897,7 +892,7 @@
     {
       "path": "tools/harness/contract/runner-context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b0848faa2717bed6622bfb1f55475e247bac46ad5fa5ee38978f86758c3fdc40"
+      "hash": "sha256:7417ef2ec9697109f698feafb39310d2473fec4e33d6a4b949959b1a4f2c9d7e"
     },
     {
       "path": "tools/harness/contract/runtime-binary-registry.mjs",
@@ -1157,7 +1152,7 @@
     {
       "path": "tools/harness/generated-artifacts/render-task-surface-make.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8974059cebc6f669055afbef7c4292e23edfd6f40de70966541ffe6cc86888f6"
+      "hash": "sha256:f6212cb7136415eeb34ac9af724be7566c6088340964125f866ca3d65c661de4"
     },
     {
       "path": "tools/harness/generated-artifacts/schema-attachment-validation.mjs",
@@ -1192,7 +1187,7 @@
     {
       "path": "tools/harness/generated-artifacts/task-surface/make-renderer.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e6644470ce97f2acf8200b929d3d84fd95aae49b448989debca22b1ad9e4990f"
+      "hash": "sha256:eec53f9becd447e8ad042cf796e7d1edf21e78b620dd4c2ae463ad57fc9a67d6"
     },
     {
       "path": "tools/harness/generated-artifacts/task-surface/model.mjs",

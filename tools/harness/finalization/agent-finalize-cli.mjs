@@ -223,7 +223,6 @@ const retainedRunPreflight = createRetainedRunPreflight({
   repoRoot,
   resultsDirInput,
 }, { sourceSnapshot: validationContext.source, loadCatalog: () => validationContext.catalog() });
-const retainedRunIdentity = retainedRunPreflight.currentIdentity();
 
 function selectedActionDefinitions() {
   return plannedActionDefinitions(actionRegistry, resultsDirInput);
@@ -390,14 +389,6 @@ async function runOperationSubstep(definition, substep) {
     ...runContextEnvironment({ operationDigest: operationExecutionDigest(operation) }),
     ...(definition.env ?? {}),
   };
-  if (definition.requiresResultsDir && resultsDirInput) {
-    childEnv.CARTULARY_RETAINED_RESULTS_DIR = resultsDirInput;
-    childEnv.CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST =
-      retainedRunIdentity.source_snapshot_digest;
-  } else {
-    delete childEnv.CARTULARY_RETAINED_RESULTS_DIR;
-    delete childEnv.CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST;
-  }
   delete childEnv.ALLOW_OLDER_RESULTS_DIR;
   removeMakeInputSources(childEnv, ["ALLOW_OLDER_RESULTS_DIR"]);
   scrubMakeCommandVariable(childEnv, "ALLOW_OLDER_RESULTS_DIR");

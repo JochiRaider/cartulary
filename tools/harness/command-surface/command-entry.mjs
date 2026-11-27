@@ -160,8 +160,8 @@ export function stepInvocation(target, env, { manifest, root = repositoryRoot })
 }
 
 // Roles whose names a harness tool never receives from its launcher: product
-// configuration and a test's own names.
-const undeclaredRoles = new Set(["product_derived", "product_interface", "test_internal"]);
+// configuration. A test's own names are not registered at all.
+const undeclaredRoles = new Set(["product_derived", "product_interface"]);
 
 // declaredNames are the names a tool may receive from the entry, the rule unit
 // environments follow (TH-HARNESS Section 5.5, default-deny): the registered

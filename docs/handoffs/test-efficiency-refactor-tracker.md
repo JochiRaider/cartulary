@@ -133,7 +133,7 @@ each.
 | G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Closed: every Go build Make runs is keyed by its import closure from `go list -deps` (14.25) |
 | G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Closed: the `mode_switch` role is gone; residual test isolation noted in 15.7 |
 | G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Closed (15.8) |
-| G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Open (15.2) |
+| G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Closed (15.9) |
 | G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Open (15.2) |
 | G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Open (15.2) |
 | G53 | The diagnostic scope scan reported a scope unresolved when it caught any same-user process mid-exit for over 10 ms, failing UI-review diagnostics under load | Implementation, tests | Phase 6, found in P6-2c | Closed: an exiting process with no address space settles like a zombie (`7e639c3d2`, 15.7) |
@@ -5018,7 +5018,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8); P6-4 done (15.9). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5626,3 +5626,78 @@ Section 9 applies.
   - `task-guide`, `target-plan`, `explain-run` and `test-run-status` ran
     under the new environments.
   - A real `make ui-review-status` returned its single structured result.
+
+### 15.9 Environment Names (P6-4, done)
+
+The registry went from 398 names (449 before Phase 6) to 251. Every
+remaining name crosses a process boundary with a writer and a reader, or is a
+declared public, product or operator input.
+
+- **Browser stack (P6-4a).** The four inline Node programs in
+  `start-web-e2e.sh` became `web-e2e-session-cli.mjs`. The stack passes
+  values on standard input as NUL-separated `key=value` records, so the
+  restart secrets never enter a process environment. 40 transport-only names
+  went.
+- **Test-local names (P6-4b, D32).** A name that only test sources mention is
+  owned by its tests and is not registered.
+  - The registry gained `scopes.tests`: the test-file globs and `testdata`.
+    They moved out of `scopes.harness`. The owner-write exemption for tests
+    uses the same scope instead of a separate pattern.
+  - The `test_internal` role is gone, from the registry, the planner's
+    uninherited roles and the entry's undeclared roles. 83 names became
+    test-local.
+  - A name that harness code outside the tests mentions, a unit command in
+    the work graph owner included, needs a role. A registered name that only
+    tests mention is reported for removal.
+  - The one test name a unit command set, the seeded review profile, became
+    two test files, one per profile.
+- **The per-name review (P6-4c).** 84 single-file names were reviewed.
+  - **Dead code.** The Go, Vitest and Playwright step-output runners under
+    `output/test-output/runners` had no caller: the step runtime's
+    `emit_report_step_summary` was never called. They, their manifest
+    adapter, the `playwright-artifacts.mjs` facade, `playwright-selection.mjs`
+    and the unused `playwright.webserver-backed.config.ts` were deleted,
+    about 3,000 lines. The shell step summary is the only one left.
+  - **Unread names.** Writes nobody read were removed: the row list beside
+    the row runner's `--row-ids`, the fixture builder's resource profile, the
+    browser stack's database, frontend mode and command kind, restart secret
+    path, server and web log paths and backend generation reference in its
+    environment, and agent-finalize's retained-run names. A scrub of a name
+    nobody sets went too.
+  - **Options nobody set.** The runner script path, the scheduler progress
+    bound, the task-surface runtime Make path, the shell step's failure note,
+    accounting and counting modes, the inotify thresholds and seven derived
+    or ineffective `dev-stack.sh` options were removed. The remaining
+    `dev-stack.sh` options are documented in its header.
+  - **Variables.** `process-lifecycle.sh` kept its state in five
+    `CARTULARY_LIFECYCLE_*` globals; they are now `_lifecycle_*` shell
+    variables.
+  - **Excluded.** `tools/backend_module_boundaries.json` lists a retired
+    variable as a forbidden product token; it never reads the environment and
+    is excluded from the scan.
+  - **Kept.** 34 names stay in one file. Most are Go constants used by other
+    files through the constant, output markers, generated layout variables,
+    or operator options that a test sets.
+- **Specification.** The environment registry paragraph is amended: the
+  test scope, the test-local rule and the crossing rule.
+- **Not done.** The plan's validation asked for a reason per single-file name
+  in the registry. The role and the tool's own documentation carry it; a
+  reason field would change the role lists the Go planner and `childenv`
+  decode, for little gain.
+- **Proof.**
+  - Generate, `lint CHECK=scripts` and `CHECK=shell`, `source-check`
+    `generated`, `surface` and `catalog`, and `frontend-fallow-static`
+    passed. The inspection reports no findings.
+  - **Segment (`p6-4a-*`).** Passed: the browser artifact assurance, browser
+    stack, development stack and environment registry rows, 10 browser rows
+    across evidence, entities, timeline and network flow, the preparation
+    contract, and the whole `module.timeline` owner (202 rows). No real
+    backend restart occurred; the lease update is covered by the new
+    `web-e2e-session-cli.mjs` tests.
+  - **Segment (`p6-4bc-*`, five owner slices).** All 17 rows passed: the
+    environment registry, public registry parity, development services and
+    stack, task-surface report, browser stack, work-graph planner and native
+    runtime rows; current-epoch evidence and output accounting; browser
+    artifact assurance, the UI-review contract, both seeded review profiles
+    and the native fixture lifecycle; and one evidence and one timeline
+    browser row on a real stack.

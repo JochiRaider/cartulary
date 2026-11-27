@@ -52,7 +52,6 @@ export function createRunnerContext(options = {}) {
     goModCacheDir: machineState.GO_MOD_CACHE_DIR.value,
     goTmpDir: machineState.GO_TMP_DIR.value,
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
-    runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "tools/harness/execution/cartulary-runner-cli.mjs", repoRoot),
     schedulerManifest: envPath(
       "SCHEDULER_MANIFEST",
       "tools/scheduler_manifest.json",
@@ -88,7 +87,6 @@ export function runnerEnv(context, extra = {}) {
     GO_TMP_DIR: context.goTmpDir,
     TEST_OUTPUT_SCRIPT: context.testOutputScript,
     TASK_SURFACE_MANIFEST: context.taskSurfaceManifest,
-    CARTULARY_RUNNER_SCRIPT: context.runnerScript,
     ...extra,
   };
 }

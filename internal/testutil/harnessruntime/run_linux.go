@@ -241,7 +241,6 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	runcontext.Context{ResultsDir: results, RunID: runID, Prepared: true}.Apply(child)
 	// A nested graph cannot inherit its parent's event authority. Each launch
 	// receives this publisher's complete-record prefix below.
-	delete(child, "CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE")
 	delete(child, "CARTULARY_HARNESS_UNIT_EVENT_PREFIX")
 	delete(child, runcontext.ExecutionObservedName)
 	runcontext.Context{ExecutionObserved: mode == "basic"}.Apply(child)

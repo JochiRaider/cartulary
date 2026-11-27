@@ -21,7 +21,6 @@
   "include": [
     "playwright.config.ts",
     "playwright.shared.config.ts",
-    "playwright.webserver-backed.config.ts",
     "e2e/**/*.ts"
   ]
 }

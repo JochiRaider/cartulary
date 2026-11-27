@@ -7,10 +7,3 @@ export function flattenPlaywrightSuites(suites, specs = []) {
   }
   return specs;
 }
-
-export function summarizePlaywrightErrors(report) {
-  const messages = (report.errors ?? [])
-    .map((error) => error?.message)
-    .filter((message) => typeof message === "string" && message.trim() !== "");
-  return messages.join("; ");
-}

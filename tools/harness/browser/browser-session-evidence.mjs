@@ -854,9 +854,6 @@ export function attachmentAssignments(stackPath) {
     CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID: stack.runtime_profile_id,
     CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT:
       process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT ?? "",
-    ...(currentBackend.reference
-      ? { CARTULARY_WEB_E2E_BACKEND_GENERATION_REF: currentBackend.reference }
-      : {}),
     CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS: resolveRunArtifact(
       stack.startup_diagnostics_ref,
     ),

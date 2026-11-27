@@ -433,16 +433,13 @@ emit_target_summary() {
   NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" target-summary "${CARTULARY_TEST_TARGET}" "${status}"
 }
 
-# step_publish_summary <helper-command> [field=value...] runs the step summary
-# helper with a step's label, directory, command, timing, exit status and logs.
-# It is the only writer of the step summary names (TH-HARNESS Section 5.5,
-# single writer): wrappers pass fields, never the names. A field that is not
-# given is not set; one given empty is set empty. duration_ms sets both the
-# logical and the executed duration. Names specific to one step kind reach the
-# helper from the caller's environment.
+# step_publish_summary [field=value...] runs the shell step summary helper with
+# a step's label, directory, command, timing, exit status and logs. It is the
+# only writer of the step summary names (TH-HARNESS Section 5.5, single
+# writer): wrappers pass fields, never the names. A field that is not given is
+# not set; one given empty is set empty. duration_ms sets both the logical and
+# the executed duration.
 step_publish_summary() {
-  local helper_command="$1"
-  shift
   local -a assignments=()
   local argument
   local value
@@ -459,8 +456,6 @@ step_publish_summary() {
       wall_duration_ms) assignments+=("CARTULARY_STEP_WALL_DURATION_MS=${value}") ;;
       exit_status) assignments+=("CARTULARY_STEP_EXIT_STATUS=${value}") ;;
       timing_bucket) assignments+=("CARTULARY_STEP_TIMING_BUCKET=${value}") ;;
-      interrupt_signal) assignments+=("CARTULARY_STEP_INTERRUPT_SIGNAL=${value}") ;;
-      runner_log) assignments+=("CARTULARY_STEP_RUNNER_LOG=${value}") ;;
       stdout_log) assignments+=("CARTULARY_STEP_STDOUT_LOG=${value}") ;;
       stderr_log) assignments+=("CARTULARY_STEP_STDERR_LOG=${value}") ;;
       *)
@@ -469,45 +464,7 @@ step_publish_summary() {
         ;;
     esac
   done
-  env "${assignments[@]}" NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
-}
-
-emit_report_step_summary() {
-  if [[ "$#" -ne 8 ]]; then
-    echo "emit_report_step_summary requires <helper-command> <label> <command-text> <start-time> <end-time> <duration-ms> <wall-duration-ms> <exit-status>" >&2
-    return 2
-  fi
-
-  local helper_command="$1"
-  local step="$2"
-  local command_text="$3"
-  local start_time="$4"
-  local end_time="$5"
-  local duration_ms
-  local wall_duration_ms
-  local exit_status="$8"
-  local step_dir
-  local helper_status
-
-  duration_ms="$(step_clamp_duration_ms "$6")"
-  wall_duration_ms="$(step_clamp_duration_ms "$7")"
-
-  step_dir="$(prepare_step_artifact_dir "$step")"
-
-  set +e
-  step_publish_summary "${helper_command}" label="$step" dir="$step_dir" command="$command_text" \
-    start_time="$start_time" end_time="$end_time" duration_ms="$duration_ms" wall_duration_ms="$wall_duration_ms" \
-    exit_status="$exit_status" timing_bucket="${CARTULARY_STEP_TIMING_BUCKET:-}" \
-    interrupt_signal="${CARTULARY_STEP_INTERRUPT_SIGNAL:-}"
-  helper_status=$?
-  set -e
-
-  if [[ "${helper_status}" -eq 0 ]]; then
-    return 0
-  fi
-
-  emit_target_summary fail || true
-  return "${helper_status}"
+  env "${assignments[@]}" NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" shell-step
 }
 
 run_step_command() {
@@ -573,7 +530,7 @@ run_step_command() {
   duration_ms="${STEP_DURATION_MS}"
 
   set +e
-  step_publish_summary shell-step label="$step" dir="$step_dir" command="$command_text" command_argv="$command_argv_json" \
+  step_publish_summary label="$step" dir="$step_dir" command="$command_text" command_argv="$command_argv_json" \
     start_time="$start_time" end_time="$end_time" duration_ms="$duration_ms" wall_duration_ms="${STEP_WALL_DURATION_MS}" \
     exit_status="$status" timing_bucket="${CARTULARY_STEP_TIMING_BUCKET:-}" stdout_log="$stdout_log" stderr_log="$stderr_log"
   helper_status=$?
