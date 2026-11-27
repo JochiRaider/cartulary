@@ -3,6 +3,9 @@ import path from "node:path";
 
 // A synchronous child cannot outlive this inspection or its workspace admission.
 // Source collection and process execution stay outside the pure policy evaluator.
+// The parse has no fixed timeout: under load it takes longer, not forever. A
+// stuck parser is a hang that the enclosing unit's deadline stops
+// (TH-HARNESS-REQ-864), so load alone cannot fail the check.
 export function inspectGoImports(collections, options) {
   return new Map([...inspectGoSources(collections, options)].map(([file, result]) => [file, result.imports]));
 }
@@ -25,7 +28,7 @@ function inspectGoSources(collections, { binary = process.env.CARTULARY_SOURCECH
   if (sources.size === 0) return new Map();
   if (!binary || !path.isAbsolute(binary)) throw new Error("Go import parser requires an installed absolute CARTULARY_SOURCECHECK_BIN");
   const files = [...sources].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([path, source]) => ({ path, source }));
-  const child = spawnSync(binary, args, { input: JSON.stringify({ files, ...(includeDeclarations ? {include_declarations: true} : {}), ...(includeSQL ? {include_sql: true} : {}) }), encoding: "utf8", timeout: 30000, maxBuffer: 16 * 1024 * 1024 });
+  const child = spawnSync(binary, args, { input: JSON.stringify({ files, ...(includeDeclarations ? {include_declarations: true} : {}), ...(includeSQL ? {include_sql: true} : {}) }), encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
   if (child.error || child.signal || child.status !== 0) throw new Error(`Go import inspection failed: ${child.error?.message ?? child.stderr?.trim() ?? child.signal ?? child.status}`);
   let result;
   try { result = JSON.parse(child.stdout); } catch (cause) { throw new Error("malformed Go import inspection response", { cause }); }
