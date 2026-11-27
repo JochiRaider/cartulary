@@ -5,7 +5,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 
-unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
 
 fail() {
   echo "$*" >&2

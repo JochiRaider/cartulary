@@ -328,7 +328,7 @@ ensure_harness_artifact_identity() {
     local node_bin
     local output
     node_bin="$(resolve_harness_node)"
-    output="$(CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${node_bin}" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" retained-artifact-env "${target}")" || return "$?"
+    output="$("${node_bin}" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" retained-artifact-env --existing-run-root "${target}")" || return "$?"
     CARTULARY_TEST_RESULTS_DIR="$(printf '%s\n' "${output}" | sed -n '1p')"
     CARTULARY_TEST_RUN_ID="$(printf '%s\n' "${output}" | sed -n '2p')"
     export CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID
@@ -342,7 +342,7 @@ ensure_harness_artifact_identity() {
   local node_bin
   local output
   node_bin="$(resolve_harness_node)"
-  output="$(CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${node_bin}" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" retained-artifact-env "${target}")" || return "$?"
+  output="$("${node_bin}" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" retained-artifact-env --existing-run-root "${target}")" || return "$?"
   CARTULARY_TEST_RESULTS_DIR="$(printf '%s\n' "${output}" | sed -n '1p')"
   CARTULARY_TEST_RUN_ID="$(printf '%s\n' "${output}" | sed -n '2p')"
   CARTULARY_HARNESS_IDENTITY_PREPARED=1

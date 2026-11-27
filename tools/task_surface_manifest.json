@@ -2382,11 +2382,11 @@
         "./tools/release-evidence/seaweedfs-release-evidence.mjs"
       ],
       "exports": {
-        "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
         "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
       },
       "test_target": "self",
       "graph_entry": true,
+      "existing_run_root": true,
       "operation_id": "harness.seaweedfs_release_gate"
     },
     "cryptographic-policy-assessment": {

@@ -27,7 +27,6 @@ import {
   machineOutput,
   normalizeOutputMode,
   resultLine,
-  suppressChildSuccess,
   terminalArtifactPath,
   toolSummaryPath,
   verboseOutput,
@@ -507,7 +506,7 @@ export function writeStepArtifacts(context, details) {
     },
   });
   writeToolSummary(toolSummaryFile, toolSummary);
-  if (details.status !== "pass" && !suppressChildSuccess()) {
+  if (details.status !== "pass") {
     if (machineOutput()) {
       process.stdout.write(compactJSONString(toolSummary));
     } else if (!verboseOutput()) {
@@ -531,7 +530,7 @@ export function writeStepArtifacts(context, details) {
     }
   }
 
-  if (details.status === "pass" && !suppressChildSuccess()) {
+  if (details.status === "pass") {
     if (machineOutput()) {
       process.stdout.write(compactJSONString(toolSummary));
     } else {

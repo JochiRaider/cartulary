@@ -11,10 +11,18 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 [[ $# == 2 && -n "$2" ]] || { echo 'usage: command-entry.sh install|installed <target>' >&2; exit 2; }
 case "$1" in
   install)
+    # The entry owns the terminal: the producer's output is shown only when
+    # it fails.
     mkdir -p -- "$GO_CACHE_DIR" "$GO_MOD_CACHE_DIR" "$GO_TMP_DIR"
-    (cd -- "$root" && env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+    produce_log="$(mktemp "$GO_TMP_DIR/command-entry-node.XXXXXX")"
+    if ! (cd -- "$root" && env -u CARTULARY_TEST_TARGET \
       GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
-      "${GO:-go}" run ./tools/harnessbuild produce node-runtime)
+      "${GO:-go}" run ./tools/harnessbuild produce node-runtime) >"$produce_log" 2>&1; then
+      cat -- "$produce_log" >&2
+      rm -f -- "$produce_log"
+      exit 2
+    fi
+    rm -f -- "$produce_log"
     ;;
   installed)
     [[ -x "$NODE_BIN" ]] || { echo 'installed Node runtime required; run make bootstrap PART=node' >&2; exit 2; }

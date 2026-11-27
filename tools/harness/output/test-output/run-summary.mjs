@@ -6,7 +6,7 @@ import { helperArtifactReferences } from "../../contract/artifact-discovery.mjs"
 import { failureFieldsForJSON, publicExitCodeForSummary } from "../../contract/failure-taxonomy.mjs";
 import { combineFixtureSummaries } from "../../diagnostics/fixture-reporting.mjs";
 import { compactJSONString, prettyJSONString, secureMkdir, secureWriteFile, validateSchemaSync } from "../../contract/harness-contract.mjs";
-import { artifactLine, directoryArtifactRef, fileArtifactRef, buildToolRunSummary, machineOutput, normalizeOutputMode, quietLikeOutput, resultLine, slowestTargetRef, suppressChildSuccess, terminalArtifactPath, toolSummaryPath, verboseOutput } from "../tool-output.mjs";
+import { artifactLine, directoryArtifactRef, fileArtifactRef, buildToolRunSummary, machineOutput, normalizeOutputMode, quietLikeOutput, resultLine, slowestTargetRef, terminalArtifactPath, toolSummaryPath, verboseOutput } from "../tool-output.mjs";
 import { resolveResultsRoot, resolveRunId, runSummarySchemaID } from "../../contract/test-output-context.mjs";
 import { buildSharedExecutionGroups } from "./shared-execution.mjs";
 import { writeSameRunHelperArtifactRefs } from "./same-run-helper-artifacts.mjs";
@@ -648,7 +648,7 @@ export function handleRunSummary(args) {
     writeValidatedJson(path.join(resultsRoot, runId, "run-summary.json"), runSummarySchemaID, runSummary);
     const runToolSummaryFile = toolSummaryPath(path.join(resultsRoot, runId));
     const runToolSummaryRel = writeToolSummary(runToolSummaryFile, runToolSummary(runSummary, relToRepo(runToolSummaryFile)));
-    const shouldSuppressMachineOutput = suppressMachineOutput || suppressChildSuccess();
+    const shouldSuppressMachineOutput = suppressMachineOutput;
     if (!failed) {
         if (machineOutput()) {
             if (!shouldSuppressMachineOutput) {
@@ -673,7 +673,7 @@ export function handleRunSummary(args) {
         }
         return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
     }
-    if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
+    if (quietFailure && quietOutputMode()) {
         return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
     }
     writeRunFailure(process.stderr, runSummary, runToolSummaryRel);

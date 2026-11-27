@@ -188,16 +188,22 @@ export function bootstrapOperation(target, env, { manifest }) {
 }
 
 // produce runs the producers through the artifact store, as the Make
-// recipe's producer step did.
+// recipe's producer step did. The entry owns the terminal: it keeps the
+// producers' output and shows it only when they fail.
 function produce(root, producers, env) {
   if (producers.length === 0) return 0;
   const caches = { GOCACHE: env.GO_CACHE_DIR, GOMODCACHE: env.GO_MOD_CACHE_DIR, GOTMPDIR: env.GO_TMP_DIR };
   for (const directory of Object.values(caches)) mkdirSync(directory, { recursive: true });
-  const produceEnv = { ...env, ...caches, CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" };
+  const produceEnv = { ...env, ...caches };
   delete produceEnv.CARTULARY_TEST_TARGET;
-  const result = spawnSync(env.GO || "go", [...producerCommand, ...producers], { cwd: root, env: produceEnv, stdio: "inherit" });
+  const result = spawnSync(env.GO || "go", [...producerCommand, ...producers], { cwd: root, env: produceEnv, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
   if (result.error) throw result.error;
-  return result.status ?? 1;
+  const status = result.status ?? 1;
+  if (status !== 0) {
+    process.stderr.write(result.stdout ?? "");
+    process.stderr.write(result.stderr ?? "");
+  }
+  return status;
 }
 
 // run waits for a child, leaving interrupts to it: Make delivers them to the
@@ -224,7 +230,7 @@ export async function runCommandEntry(target, inherited = process.env, root = re
   const manifest = JSON.parse(readFileSync(defaultTaskSurfaceManifestPath, "utf8"));
   const { family, recipe } = publicRecipe(manifest, target);
   const env = targetEnvironment(target, inherited, { manifest, root });
-  if (recipe.preflight_owner !== "entrypoint") preflightPublicTarget(target, env);
+  if (recipe.preflight_owner !== "entrypoint") preflightPublicTarget(target, env, { allowExistingRunRoot: recipe.existing_run_root === true });
   const produced = produce(root, recipeProducers(root, recipe), env);
   if (produced !== 0) return produced;
   if (family === "bootstrap") {

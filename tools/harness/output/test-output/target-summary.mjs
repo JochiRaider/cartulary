@@ -7,7 +7,7 @@ import { combineFixtureSummaries, emptyFixtureSummary, fixtureSummaryLine, summa
 import { compactJSONString, prettyJSONString, secureMkdir, secureWriteFile, validateSchemaSync } from "../../contract/harness-contract.mjs";
 import { loadSummaryTopologyContext, summaryProjectionChildren } from "../../execution/summary-topology.mjs";
 import { defaultTaskSurfaceManifestPath } from "../../generated-artifacts/task-surface/model.mjs";
-import { artifactLine, directoryArtifactRef, fileArtifactRef, buildToolRunSummary, machineOutput, normalizeOutputMode, quietLikeOutput, resultLine, slowestTargetRef, suppressChildSuccess, terminalArtifactPath, toolSummaryPath, verboseOutput } from "../tool-output.mjs";
+import { artifactLine, directoryArtifactRef, fileArtifactRef, buildToolRunSummary, machineOutput, normalizeOutputMode, quietLikeOutput, resultLine, slowestTargetRef, terminalArtifactPath, toolSummaryPath, verboseOutput } from "../tool-output.mjs";
 import { resolveResultsRoot, resolveRunId, targetSummarySchemaID, testCoverageBuckets } from "../../contract/test-output-context.mjs";
 import { govulncheckArtifactFailure, loadGovulncheckFindingsFile } from "./security-diagnostics.mjs";
 import { createDurationFields, durationFieldsForJSON, janitorialTimingSpans, lifecycleTimingSpans, summarizeTargetTiming, teardownStatus, timingFailuresFromSpans } from "./timing.mjs";
@@ -1583,8 +1583,7 @@ export function handleTargetSummary(args) {
     );
     validateSchemaSync("cartulary.tool_run_summary.v5", existingToolSummary);
   }
-  const shouldSuppressMachineOutput =
-    suppressMachineOutput || suppressChildSuccess();
+  const shouldSuppressMachineOutput = suppressMachineOutput;
   if (finalStatus === "PASS") {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
@@ -1596,7 +1595,7 @@ export function handleTargetSummary(args) {
       }
       return 0;
     }
-    if ((quietSuccess || suppressChildSuccess()) && quietOutputMode()) {
+    if (quietSuccess && quietOutputMode()) {
       return 0;
     }
     writeTargetResult(process.stdout, targetSummary, targetToolSummaryRel);
@@ -1624,7 +1623,7 @@ export function handleTargetSummary(args) {
     }
     return 0;
   }
-  if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
+  if (quietFailure && quietOutputMode()) {
     return 0;
   }
   writeTargetFailure(process.stderr, targetSummary, targetToolSummaryRel);

@@ -43,10 +43,6 @@ export function verboseOutput(env = process.env) {
   return mode === "verbose" || mode === "debug";
 }
 
-export function suppressChildSuccess(env = process.env) {
-  return env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1";
-}
-
 export function fileArtifactRef(role, file, format = "json") {
   if (!file) {
     return null;

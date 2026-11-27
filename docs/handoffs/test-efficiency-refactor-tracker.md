@@ -136,6 +136,7 @@ each.
 | G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Open (15.2) |
 | G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Open (15.2) |
 | G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Open (15.2) |
+| G53 | The diagnostic scope scan reported a scope unresolved when it caught any same-user process mid-exit for over 10 ms, failing UI-review diagnostics under load | Implementation, tests | Phase 6, found in P6-2c | Closed: an exiting process with no address space settles like a zombie (`7e639c3d2`, 15.7) |
 
 ## 5. Gap Remediation Detail
 
@@ -5445,10 +5446,60 @@ Section 9 applies.
   - **Plans.** Same units and rows. Only the operations whose commands
     changed have new digests: 1 in `check`, 18 in `ci`, 2 in
     `release-check`.
+- **P6-2c: `SUPPRESS_CHILD_SUCCESS` and `ALLOW_EXISTING_RUN_ROOT`.** The
+  first switch did three jobs, and each now has an explicit owner:
+  - **Presentation.** The process that owns the terminal captures its
+    children's output. The entry buffers its producer runs and shows the
+    output only on failure. Graph units and agent-finalize substeps were
+    already captured. The output library always reports normally.
+  - **Existing run roots.** A target whose run identity names an existing
+    run declares `existing_run_root` in its recipe, as the SeaweedFS gate
+    now does. The step runtime's identity query passes
+    `--existing-run-root`. No environment value grants reuse.
+  - **Test services.** They log a suite's child processes to the suite's
+    runtime directory whenever one resolves.
+
+  Removed: 32 more strip entries, both registry names and the gate's export.
+  Specification amended (the presentation and existing-run-root rules).
+  - **Proof.**
+    - Lint `go`, `scripts` and `shell`, and `source-check` `catalog`,
+      `generated`, `surface` and `schema` passed.
+    - **Segment (`p6-2c`).** All rows passed except
+      `ui_review_workflow`: 9 command-surface rows (with the public wrapper
+      smoke), evidence accounting, routing, release, generated artifacts, two
+      browser rows and a PostgreSQL row.
+    - `bootstrap PART=node` passed.
+    - A machine-mode slice printed exactly one JSON result.
+    - With the scan fix below, all eight UI-review rows pass (`p6-2c-review2`).
+  - **Plans.** Same units and rows. Changed digests: 0 in `check`, 15 in
+    `ci`, 1 in `release-check`, all operations whose commands changed.
+- **The scan race (G53, `7e639c3d2`).**
+  - **Symptom.** `ui_review_workflow` failed once in the segment and 2 of 5
+    under stress, with diagnostics failing as `target_unavailable`.
+  - **Diagnosis.** Temporary instrumentation in the native scope scan logged
+    341 unreadable processes. All were exiting: the executable link was
+    missing and the state still `R`. They were the harness's own short-lived
+    processes:
+    - 313 Node `MainThread`;
+    - `cartulary-harness` session calls, which the test's two concurrent
+      workflows each make every 50 ms;
+    - `git` and `sh`.
+
+    The scan retried for 10 ms and then reported the scope unresolved.
+  - **Not caused by P6-2c.** The committed P6-2b code passed 10 of 10
+    normally but failed 1 of 5 with the same signature under a loop of
+    short-lived Node processes. P6-2c failed 5 of 22 before the fix; no
+    mechanism linking it to this path was found.
+  - **Fix.** An unreadable process whose address space is released settles
+    like a zombie, since it can no longer run user code. A live process
+    whose proof is only inaccessible keeps its executable link and stays
+    unresolved, as the non-dumpable fixture tests still require.
+  - **Proof.**
+    - A new unit case covers the settlement rule.
+    - The native session row passed.
+    - Under the same induced churn, the workflow row passes 10 of 10
+      (`scan-churn`).
 - **Next.**
-  - **P6-2c.** `SUPPRESS_CHILD_SUCCESS` does three jobs: it quiets nested
-    result lines, allows an existing run root, and keeps the step runtime's
-    identity query parseable. Each becomes an explicit owner decision.
   - **P6-2d.** `IDENTITY_PREPARED`.
   - **P6-2e.** The single-pair switches and the reclassification, then one
     `check`.

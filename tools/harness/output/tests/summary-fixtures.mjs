@@ -21,7 +21,7 @@ export function outputContext(t) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cartulary-output-contract-'));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const run = path.join(root, 'run');
-    const env = { ...process.env, NODE: process.execPath, CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: 'run', CARTULARY_OUTPUT_MODE: 'quiet', CARTULARY_SUPPRESS_CHILD_SUCCESS: '0' };
+    const env = { ...process.env, NODE: process.execPath, CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: 'run', CARTULARY_OUTPUT_MODE: 'quiet' };
     for (const name of ['CARTULARY_HARNESS_IDENTITY_PREPARED', 'CARTULARY_TEST_TARGET', 'VERBOSE', 'CI_VERBOSE', 'CARTULARY_MAKE_INPUT_SOURCES'])
         delete env[name];
     const write = (relative, value) => {

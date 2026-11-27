@@ -6782,7 +6782,12 @@ summary for the same interval (amended 2026-11-27, P6-2). The operation runner
 owns an operation's capture and target summary only when its caller passes
 `--report`, as bootstrap and agent-finalize do. No unit or child process
 changes behavior because of an ambient mode switch inherited from its parent;
-an executor passes behavior as arguments or typed run context.
+an executor passes behavior as arguments or typed run context. Presentation
+belongs to the process that owns the terminal: a parent that wants a quiet
+child captures the child's output and shows it only when the child fails, so a
+child always reports normally. A target whose run identity names a run that
+already exists declares `existing_run_root` in its recipe, and only then does
+its preflight reuse that run root.
 
 Estimated work is advisory scheduling input only. It is not a resource claim,
 timeout, benchmark claim, or product performance threshold.

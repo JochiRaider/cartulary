@@ -18,7 +18,7 @@ import {
 
 function usage(programName) {
   process.stderr.write(
-    `usage: ${programName} preflight <target> | retained-artifact-env <target> | validate-schema <schema-id> <json-file> | redact | generate-test-route-token\n`,
+    `usage: ${programName} preflight <target> | retained-artifact-env [--existing-run-root] <target> | validate-schema <schema-id> <json-file> | redact | generate-test-route-token\n`,
   );
 }
 
@@ -44,12 +44,14 @@ async function main(argv, programName) {
     return 0;
   }
   if (command === "retained-artifact-env") {
-    const [target, ...extra] = args;
+    // A step inside a run passes --existing-run-root: its run root may exist.
+    const existing = args[0] === "--existing-run-root";
+    const [target, ...extra] = existing ? args.slice(1) : args;
     if (!target || extra.length > 0) {
       usage(programName);
       return 2;
     }
-    const identity = resolveArtifactIdentityForTarget(target);
+    const identity = resolveArtifactIdentityForTarget(target, process.env, { allowExistingRunRoot: existing });
     process.stdout.write(`${identity.result_root}\n${identity.run_id}\n`);
     return 0;
   }

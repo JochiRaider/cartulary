@@ -3378,40 +3378,36 @@ type execChild struct {
 func startChildProcess(argv []string, env map[string]string) (childProcess, error) {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Env = envSlice(env)
-	captureChild := suiteservices.LookupEnvValue(env, "CARTULARY_SUPPRESS_CHILD_SUCCESS") == "1"
-	if captureChild {
-		suiteDir, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			if err := os.MkdirAll(suiteDir, 0o700); err != nil {
-				return nil, err
-			}
-			logPath := filepath.Join(suiteDir, "child-process.log")
-			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- suite artifact path is resolved from the configured results root.
-			if err != nil {
-				return nil, err
-			}
-			cmd.Stdout = logFile
-			cmd.Stderr = logFile
-			cmd.Stdin = os.Stdin
-			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-			if err := cmd.Start(); err != nil {
-				_ = logFile.Close()
-				return nil, err
-			}
-			return &execChild{cmd: cmd, logFile: logFile, logPath: logPath}, nil
-		}
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if err := cmd.Start(); err != nil {
+	suiteDir, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
+	if err != nil {
 		return nil, err
 	}
-	return &execChild{cmd: cmd}, nil
+	if !ok {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+		return &execChild{cmd: cmd}, nil
+	}
+	// A suite's child processes log to the suite's own runtime directory.
+	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
+		return nil, err
+	}
+	logPath := filepath.Join(suiteDir, "child-process.log")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- suite artifact path is resolved from the configured results root.
+	if err != nil {
+		return nil, err
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
+		return nil, err
+	}
+	return &execChild{cmd: cmd, logFile: logFile, logPath: logPath}, nil
 }
 
 func startDetachedSuiteReaper(leasePath string, env map[string]string) error {

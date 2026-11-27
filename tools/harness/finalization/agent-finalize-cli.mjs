@@ -390,7 +390,6 @@ async function runOperationSubstep(definition, substep) {
     ...process.env,
     ...runContextEnvironment({ operationDigest: operationExecutionDigest(operation) }),
     ...(definition.env ?? {}),
-    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
   if (definition.requiresResultsDir && resultsDirInput) {
     childEnv.CARTULARY_RETAINED_RESULTS_DIR = resultsDirInput;

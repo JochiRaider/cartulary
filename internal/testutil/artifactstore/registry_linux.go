@@ -415,7 +415,6 @@ func (w *Workspace) step(d Declaration, env []string) ([]string, func([]string) 
 	if d.Label == "" || script == "" {
 		return env, nil
 	}
-	env = append(env, "CARTULARY_SUPPRESS_CHILD_SUCCESS=1")
 	if d.Target != "" && w.Getenv("CARTULARY_TEST_TARGET") == "" {
 		env = append(env, runcontext.Entries(runcontext.Context{Target: d.Target}.Environment())...)
 	}

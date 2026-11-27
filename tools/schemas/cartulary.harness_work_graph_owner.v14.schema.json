@@ -489,6 +489,10 @@
               "tool_id": {
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "existing_run_root": {
+                "const": true,
+                "description": "The target's run identity names an existing run, whose root its preflight reuses."
               }
             },
             "additionalProperties": false,

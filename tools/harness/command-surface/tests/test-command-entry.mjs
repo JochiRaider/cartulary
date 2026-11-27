@@ -22,7 +22,9 @@ test("the entry sets each target's own exports and run context, as its Make rule
   // A target that reports for itself keeps the public target that invoked it.
   assert.equal(targetEnvironment("check", { ...base, CARTULARY_TEST_TARGET: "release-check" }, { manifest, root }).CARTULARY_TEST_TARGET, "release-check");
   const gate = targetEnvironment("seaweedfs-release-gate", { ...base, CARTULARY_TEST_RUN_ID: "run-1" }, { manifest, root });
-  assert.equal(gate.CARTULARY_ALLOW_EXISTING_RUN_ROOT, "1");
+  // The gate declares its existing run root; it exports only its run identity.
+  assert.equal(manifest.make_recipes["seaweedfs-release-gate"].existing_run_root, true);
+  assert.deepEqual(Object.keys(manifest.make_recipes["seaweedfs-release-gate"].exports), ["CARTULARY_TEST_RUN_ID"]);
   assert.equal(gate.CARTULARY_TEST_RUN_ID, "run-1");
   // Other targets report for whichever target invoked them.
   assert.equal(Object.hasOwn(targetEnvironment("doctor", base, { manifest, root }), "CARTULARY_TEST_TARGET"), false);

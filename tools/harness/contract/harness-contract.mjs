@@ -1256,18 +1256,18 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   }
   return prepareRetainedArtifactRunRoot(resolved, {
     allowExistingRunRoot:
-      options.allowExistingRunRoot === true ||
-      preparedArtifactIdentity ||
-      env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1" ||
-      env.CARTULARY_ALLOW_EXISTING_RUN_ROOT === "1",
+      options.allowExistingRunRoot === true || preparedArtifactIdentity,
     materializeGeneratedRunId: options.materializeGeneratedRunId === true,
   });
 }
 
-export function preflightPublicTarget(target, env = process.env) {
+// allowExistingRunRoot is the target's declared contract: its run identity
+// names a run that already exists (a recipe's existing_run_root).
+export function preflightPublicTarget(target, env = process.env, { allowExistingRunRoot = false } = {}) {
   const resolved = resolveHarnessConfig(target, env, {
     prepareRetainedArtifacts: true,
     materializeGeneratedRunId: false,
+    allowExistingRunRoot,
   });
   return resolved;
 }
