@@ -125,8 +125,8 @@ func TestRuntimeLedgerAdmission(t *testing.T) {
 		}
 		var waitedOn []string
 		for _, event := range r.Events {
-			if event["unit_id"] == "b" && event["event"] == "wait_started" && event["wait_reason"] == "resources" {
-				waitedOn = event["blocking_resources"].([]string)
+			if event["unit_id"] == "b" && event["event"] == "wait_ended" && event["wait_reason"] == "resources" {
+				waitedOn, _ = endedBlockers(event)
 			}
 		}
 		if !slices.Equal(waitedOn, []string{"postgres"}) {
@@ -243,8 +243,10 @@ func TestRuntimeResidentHeldWaits(t *testing.T) {
 	}
 	waitOf := func(r graphResult, id string) (string, []string, []string) {
 		for _, event := range r.Events {
-			if event["unit_id"] == id && event["event"] == "wait_started" && event["wait_reason"] != "rank" {
-				return event["wait_reason"].(string), event["blocking_resources"].([]string), event["blocking_unit_ids"].([]string)
+			if event["unit_id"] == id && event["event"] == "wait_ended" && event["wait_reason"] != "rank" {
+				resources, units := endedBlockers(event)
+				slices.Sort(units)
+				return event["wait_reason"].(string), resources, units
 			}
 		}
 		return "", nil, nil

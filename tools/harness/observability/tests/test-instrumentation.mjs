@@ -225,13 +225,14 @@ test("terminating an observer thread cannot strand its measurement fence", async
 
 test("retained validation reconstructs path and target fields and rejects tampered summaries", async (t) => {
   const dir = temporary(t), graph = { units: [unit("a")] };
-  const wait = { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] };
+  const started = { wait_reason: "rank" };
+  const ended = { wait_reason: "rank", blocked_resources: [], blocking_units: [], blocking_units_omitted: 0 };
   const events = [
     ["run_started", 0], ["queued", 0, { unit_kind: "runner", row_ids: [] }],
-    ["eligible", 0], ["wait_started", 0, wait], ["wait_ended", 2, wait],
+    ["eligible", 0], ["wait_started", 0, started], ["wait_ended", 2, ended],
     ["admitted", 2], ["started", 2], ["completed", 9],
     ["cleanup_started", 9], ["cleanup_completed", 10], ["run_completed", 10],
-  ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v4",
+  ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v5",
     seq: index + 1, monotonic_ms, event, unit_id: /^(run_|cleanup_)/u.test(event) ? "harness:run" : "a",
     status: ["completed", "run_completed", "cleanup_completed"].includes(event) ? "passed" : "running",
     needs: [], resource_claims: /^(run_|cleanup_)/u.test(event) ? {} : { cpu: 1, process: 1 }, service_dependencies: [], ...extra }));

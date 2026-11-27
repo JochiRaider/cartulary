@@ -15,6 +15,28 @@ const terminalStatuses = new Map([
   ["cancelled", "cancelled"],
 ]);
 
+const maximumAttributedUnits = 8;
+
+// A wait_ended's attribution against its segment (TH-HARNESS-REQ-371):
+// resources sorted by name, units by overlap descending then ID, no value
+// over the segment, and a blocked segment's resources covering all of it.
+function checkWaitAttribution(event, duration, registrations) {
+  const resources = event.blocked_resources;
+  const units = event.blocking_units;
+  const omitted = event.blocking_units_omitted;
+  const blocked = event.wait_reason === "resources" || event.wait_reason === "exclusive_barrier";
+  const invalid = blocked !== (resources.length > 0) || blocked !== (units.length > 0) ||
+    (!blocked && omitted !== 0) || units.length > maximumAttributedUnits ||
+    (omitted > 0 && units.length < maximumAttributedUnits) ||
+    resources.some((r, i) => r.blocked_ms > duration || (i > 0 && r.resource <= resources[i - 1].resource)) ||
+    (blocked && resources.reduce((sum, r) => sum + r.blocked_ms, 0) < duration) ||
+    units.some((u, i) => u.overlap_ms > duration || u.unit_id === event.unit_id ||
+      (registrations !== null && !registrations.has(u.unit_id)) ||
+      (i > 0 && (u.overlap_ms > units[i - 1].overlap_ms ||
+        (u.overlap_ms === units[i - 1].overlap_ms && u.unit_id <= units[i - 1].unit_id))));
+  if (invalid) throw new Error("invalid wait authority");
+}
+
 function abortError() {
   const error = new Error("canonical event iteration was cancelled");
   error.name = "AbortError";
@@ -87,7 +109,7 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
       } catch (error) {
         throw new Error(`${file} line ${lineNumber} is invalid JSON: ${error.message}`);
       }
-      validateSchemaSync("cartulary.harness_unit_event.v4", event);
+      validateSchemaSync("cartulary.harness_unit_event.v5", event);
       if (
         terminalEventNames.has(event.event) &&
         event.status !== terminalStatuses.get(event.event)
@@ -199,20 +221,9 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
         event.monotonic_ms !== (closedWaits.get(event.unit_id) ?? eligible.get(event.unit_id))) {
         throw new Error(`${file} has invalid wait start for ${event.unit_id}`);
       }
-      const wait = {
-        start: event.monotonic_ms, end: null,
-        wait_reason: event.wait_reason,
-        blocking_resources: event.blocking_resources,
-        blocking_unit_ids: event.blocking_unit_ids,
-      };
-      const blocked = ["resources", "exclusive_barrier"].includes(wait.wait_reason);
-      if (blocked !== (wait.blocking_resources.length > 0) || blocked !== (wait.blocking_unit_ids.length > 0) ||
-        [wait.blocking_resources, wait.blocking_unit_ids].some((ids) => JSON.stringify(ids) !== JSON.stringify([...ids].sort())) ||
-        wait.blocking_unit_ids.includes(event.unit_id) ||
-        (selected === null && wait.blocking_unit_ids.some((id) => !registrations.has(id)))) throw new Error("invalid wait authority");
-      if (prior && prior.last.wait_reason === wait.wait_reason &&
-        JSON.stringify(prior.last.blocking_resources) === JSON.stringify(wait.blocking_resources) &&
-        JSON.stringify(prior.last.blocking_unit_ids) === JSON.stringify(wait.blocking_unit_ids)) throw new Error("unchanged wait segment");
+      const wait = { start: event.monotonic_ms, end: null, wait_reason: event.wait_reason };
+      // Only a change of reason opens a successor segment (TH-HARNESS-REQ-371).
+      if (prior && prior.last.wait_reason === wait.wait_reason) throw new Error("unchanged wait segment");
       const summary = prior ?? { start: event.monotonic_ms, end: null, count: 0,
         by_reason: { resources: 0, exclusive_barrier: 0, rank: 0, scheduler_stop: 0 },
         resource_intervals: [], resource_holders: new Set() };
@@ -224,20 +235,20 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     if (event.event === "wait_ended") {
       const opened = openWaits.get(event.unit_id);
       if (!opened) throw new Error(`${file} has unmatched wait end for ${event.unit_id}`);
-      if (
-        opened.wait_reason !== event.wait_reason ||
-        JSON.stringify(opened.blocking_resources) !== JSON.stringify(event.blocking_resources) ||
-        JSON.stringify(opened.blocking_unit_ids) !== JSON.stringify(event.blocking_unit_ids)
-      ) {
+      if (opened.wait_reason !== event.wait_reason) {
         throw new Error(`${file} has mismatched wait end for ${event.unit_id}`);
       }
       opened.end = event.monotonic_ms;
+      checkWaitAttribution(event, opened.end - opened.start, selected === null ? registrations : null);
+      opened.blocked_resources = event.blocked_resources;
+      opened.blocking_units = event.blocking_units;
+      opened.blocking_units_omitted = event.blocking_units_omitted;
       const summary = waits.get(event.unit_id);
       summary.end = opened.end;
       options.onWaitSegment?.({ unit_id: event.unit_id, ...opened });
       summary.by_reason[opened.wait_reason] += opened.end - opened.start;
       if (opened.wait_reason === "resources") {
-        for (const holder of opened.blocking_unit_ids) summary.resource_holders.add(holder);
+        for (const holder of opened.blocking_units) summary.resource_holders.add(holder.unit_id);
         if (opened.end > opened.start) {
           const prior = summary.resource_intervals.at(-1);
           if (prior?.end === opened.start) prior.end = opened.end;

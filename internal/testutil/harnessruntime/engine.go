@@ -1,10 +1,12 @@
 package harnessruntime
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -196,10 +198,59 @@ type waitDetails struct {
 	resources, units []string
 }
 
-func (w waitDetails) fields() map[string]any {
-	return map[string]any{"wait_reason": w.reason, "blocking_resources": w.resources, "blocking_unit_ids": w.units}
-}
 func stoppedWait() waitDetails { return waitDetails{"scheduler_stop", []string{}, []string{}} }
+
+// maximumAttributedUnits bounds the blocking units one wait_ended names.
+const maximumAttributedUnits = 8
+
+// waitSegment is a unit's open wait segment. Its reason is fixed; the
+// blockers decided at each boundary inside it accumulate until it closes,
+// when wait_ended carries them (TH-HARNESS-REQ-371).
+type waitSegment struct {
+	current          waitDetails
+	since            int64
+	blocked, overlap map[string]int64
+}
+
+func newWaitSegment(w waitDetails, at int64) *waitSegment {
+	s := &waitSegment{since: at, blocked: map[string]int64{}, overlap: map[string]int64{}}
+	s.decide(w, at)
+	return s
+}
+
+// decide charges the blockers in force since the last boundary and records
+// the blockers decided at this one, which count from at.
+func (s *waitSegment) decide(w waitDetails, at int64) {
+	for _, r := range s.current.resources {
+		s.blocked[r] += at - s.since
+	}
+	for _, u := range s.current.units {
+		s.overlap[u] += at - s.since
+	}
+	s.current, s.since = w, at
+	for _, r := range w.resources {
+		s.blocked[r] += 0
+	}
+	for _, u := range w.units {
+		s.overlap[u] += 0
+	}
+}
+
+func (s *waitSegment) attribution() map[string]any {
+	resources := []map[string]any{}
+	for _, r := range slices.Sorted(maps.Keys(s.blocked)) {
+		resources = append(resources, map[string]any{"resource": r, "blocked_ms": s.blocked[r]})
+	}
+	ids := slices.SortedFunc(maps.Keys(s.overlap), func(a, b string) int {
+		return cmp.Or(cmp.Compare(s.overlap[b], s.overlap[a]), strings.Compare(a, b))
+	})
+	shown := ids[:min(len(ids), maximumAttributedUnits)]
+	units := []map[string]any{}
+	for _, id := range shown {
+		units = append(units, map[string]any{"unit_id": id, "overlap_ms": s.overlap[id]})
+	}
+	return map[string]any{"wait_reason": s.current.reason, "blocked_resources": resources, "blocking_units": units, "blocking_units_omitted": len(ids) - len(shown)}
+}
 
 // graphEngine is the sole writer of scheduling state and canonical event order.
 // Workers own only their acquired lifecycle resources and communicate through
@@ -217,7 +268,7 @@ type graphEngine struct {
 	exclusive                 map[string]bool
 	running, eligible         map[string]bool
 	released                  map[string]bool
-	waits                     map[string]waitDetails
+	waits                     map[string]*waitSegment
 	activities                map[string]string
 	activityWait              map[string]string
 	starts                    map[string]*int64
@@ -260,7 +311,7 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 	e := &graphEngine{plan: plan, ports: ports, ctx: ctx, cancel: cancel, mailbox: make(chan engineMessage, 256),
 		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
 		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{}, released: map[string]bool{},
-		waits: map[string]waitDetails{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
+		waits: map[string]*waitSegment{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
 		leases: map[string]*hostLease{}, denied: map[string][]string{}, lookups: map[string]cacheResult{}, attempts: map[string]int{},
 		result: graphResult{States: map[string]string{}, Units: map[string]unitResult{}, Admissions: []string{}, Events: []map[string]any{}, Cleanup: []cleanupRecord{}}}
 	for _, u := range plan.facts.Graph.Units {
@@ -373,7 +424,7 @@ func (e *graphEngine) emit(at int64, event, id, status string, extra map[string]
 	}
 	e.seq++
 	e.lastMS = max(e.lastMS, at)
-	r := map[string]any{"schema_id": "cartulary.harness_unit_event.v4", "seq": e.seq, "monotonic_ms": e.lastMS, "event": event, "unit_id": id, "status": status, "needs": needs, "resource_claims": claims, "service_dependencies": services}
+	r := map[string]any{"schema_id": "cartulary.harness_unit_event.v5", "seq": e.seq, "monotonic_ms": e.lastMS, "event": event, "unit_id": id, "status": status, "needs": needs, "resource_claims": claims, "service_dependencies": services}
 	if event == "queued" {
 		r["unit_kind"] = u.Kind
 		r["row_ids"] = rowIDs(u)
@@ -386,7 +437,7 @@ func (e *graphEngine) emit(at int64, event, id, status string, extra map[string]
 		var normalized any
 		normalized, err = harnessschema.Decode(data)
 		if err == nil {
-			err = harnessschema.Validate("cartulary.harness_unit_event.v4", normalized)
+			err = harnessschema.Validate("cartulary.harness_unit_event.v5", normalized)
 		}
 	}
 	if err != nil {
@@ -750,20 +801,30 @@ func (e *graphEngine) takeLease(id string) *hostLease {
 	delete(e.leases, id)
 	return lease
 }
-func (e *graphEngine) openWait(id string, w waitDetails, at int64) {
+
+// openWait applies one decision boundary to a ready unit's wait. Only a
+// change of reason closes the segment; changed blockers within a reason are
+// charged to the open segment. Boundaries use the canonical instant the
+// stream would record, so attribution never exceeds the emitted segment.
+func (e *graphEngine) openWait(id string, w waitDetails, decided int64) {
+	at := max(decided, e.lastMS)
 	if prior, ok := e.waits[id]; ok {
-		if prior.reason == w.reason && slices.Equal(prior.resources, w.resources) && slices.Equal(prior.units, w.units) {
+		if prior.current.reason == w.reason {
+			if !slices.Equal(prior.current.resources, w.resources) || !slices.Equal(prior.current.units, w.units) {
+				prior.decide(w, max(at, prior.since))
+			}
 			return
 		}
 		e.closeWait(id, at)
+		at = max(at, e.lastMS)
 	}
 	if !e.eligible[id] {
 		e.eligible[id] = true
-		e.eligibleAt[id] = at
+		e.eligibleAt[id] = decided
 		e.emit(at, "eligible", id, "pending", nil)
 	}
-	e.waits[id] = w
-	e.emit(at, "wait_started", id, "pending", w.fields())
+	e.waits[id] = newWaitSegment(w, at)
+	e.emit(at, "wait_started", id, "pending", map[string]any{"wait_reason": w.reason})
 }
 
 // Refresh after each reservation change, including batched completions. The
@@ -784,7 +845,9 @@ func (e *graphEngine) closeWait(id string, at int64) {
 		return
 	}
 	delete(e.waits, id)
-	e.emit(at, "wait_ended", id, "pending", w.fields())
+	at = max(at, e.lastMS, w.since)
+	w.decide(w.current, at)
+	e.emit(at, "wait_ended", id, "pending", w.attribution())
 }
 func (e *graphEngine) reserve(u unit, direction int64) {
 	for k, v := range u.Claims {

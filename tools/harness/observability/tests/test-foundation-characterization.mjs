@@ -146,7 +146,7 @@ test("canonical phases retain incomplete ends and reject the 129th start", async
   const entries = [{ event: "queued", unit_kind: "runner", row_ids: [], status: "pending" }];
   for (let i = 1; i <= 128; i++) entries.push({ event: "phase_started", interval_id: `phase:${i}`, phase: "runner" });
   const publish = () => writeFileSync(file, entries.map((entry, i) => JSON.stringify({
-    schema_id: "cartulary.harness_unit_event.v4", seq: i + 1, monotonic_ms: i,
+    schema_id: "cartulary.harness_unit_event.v5", seq: i + 1, monotonic_ms: i,
     unit_id: "a", status: "running", needs: [], resource_claims: {}, service_dependencies: [], ...entry,
   })).join("\n") + "\n");
   publish();

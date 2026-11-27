@@ -14,7 +14,7 @@ var errCanonical = errors.New("canonical graph accounting does not close")
 type timeInterval struct{ start, end, queue int64 }
 type canonicalWait struct {
 	timeInterval
-	details             waitDetails
+	reason              string
 	closed              bool
 	segmentStart, count int64
 	resources           []timeInterval
@@ -80,8 +80,71 @@ func stringList(v any) []string {
 	}
 	return out
 }
+
+// objectList reads an array of objects from a scheduler record or from its
+// decoded form.
+func objectList(v any) ([]map[string]any, bool) {
+	if values, ok := v.([]map[string]any); ok {
+		return values, true
+	}
+	values, ok := v.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]map[string]any, 0, len(values))
+	for _, value := range values {
+		object, ok := value.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, object)
+	}
+	return out, true
+}
+
+// waitAttribution checks a wait_ended's attribution against its segment
+// (TH-HARNESS-REQ-371) and returns the blocking units it names. Resources
+// are sorted by name, units by overlap descending then ID; no value exceeds
+// the segment, and a blocked segment's resources cover all of it.
+func (f *canonicalFacts) waitAttribution(id, reason string, duration int64, e map[string]any) ([]string, error) {
+	resources, ok := objectList(e["blocked_resources"])
+	units, unitsOK := objectList(e["blocking_units"])
+	omitted := integerValue(e["blocking_units_omitted"])
+	blocked := reason == "resources" || reason == "exclusive_barrier"
+	if !ok || !unitsOK || omitted < 0 || blocked != (len(resources) > 0) || blocked != (len(units) > 0) || !blocked && omitted != 0 || len(units) > maximumAttributedUnits || omitted > 0 && len(units) < maximumAttributedUnits {
+		return nil, errCanonical
+	}
+	var total int64
+	for i, r := range resources {
+		name, _ := r["resource"].(string)
+		ms := integerValue(r["blocked_ms"])
+		if ms < 0 || ms > duration || i > 0 && name <= resources[i-1]["resource"].(string) {
+			return nil, errCanonical
+		}
+		total += ms
+	}
+	if total < duration && blocked {
+		return nil, errCanonical
+	}
+	ids := make([]string, 0, len(units))
+	for i, u := range units {
+		holder, _ := u["unit_id"].(string)
+		ms := integerValue(u["overlap_ms"])
+		if _, known := f.byID[holder]; !known || holder == id || ms < 0 || ms > duration {
+			return nil, errCanonical
+		}
+		if i > 0 {
+			prior := integerValue(units[i-1]["overlap_ms"])
+			if ms > prior || ms == prior && holder <= ids[i-1] {
+				return nil, errCanonical
+			}
+		}
+		ids = append(ids, holder)
+	}
+	return ids, nil
+}
 func (f *canonicalFacts) consume(e map[string]any) error {
-	if _, err := documentBytes("cartulary.harness_unit_event.v4", e); err != nil {
+	if _, err := documentBytes("cartulary.harness_unit_event.v5", e); err != nil {
 		return err
 	}
 	seq, at := integerValue(e["seq"]), integerValue(e["monotonic_ms"])
@@ -155,37 +218,30 @@ func (f *canonicalFacts) consume(e map[string]any) error {
 		if !f.eligible[id] || admitted || exists && (!w.closed || w.end != at) || !exists && f.eligibleAt[id] != at {
 			return errCanonical
 		}
-		details := waitDetails{e["wait_reason"].(string), stringList(e["blocking_resources"]), stringList(e["blocking_unit_ids"])}
-		if !slices.IsSorted(details.resources) || !slices.IsSorted(details.units) {
-			return errCanonical
-		}
-		blocked := details.reason == "resources" || details.reason == "exclusive_barrier"
-		if blocked != (len(details.resources) > 0) || blocked != (len(details.units) > 0) {
-			return errCanonical
-		}
-		for _, holder := range details.units {
-			if _, ok := f.byID[holder]; !ok || holder == id {
-				return errCanonical
-			}
-		}
-		if exists && reflect.DeepEqual(details, w.details) {
+		// Only a change of reason opens a successor segment.
+		reason := e["wait_reason"].(string)
+		if exists && reason == w.reason {
 			return errCanonical
 		}
 		if !exists {
 			w = canonicalWait{timeInterval: timeInterval{start: at}, holders: map[string]bool{}, byReason: map[string]int64{"resources": 0, "exclusive_barrier": 0, "rank": 0, "scheduler_stop": 0}}
 		}
-		w.segmentStart, w.closed, w.details = at, false, details
+		w.segmentStart, w.closed, w.reason = at, false, reason
 		w.count++
 		f.waits[id] = w
 	case "wait_ended":
 		w, ok := f.waits[id]
-		if !ok || w.closed || w.details.reason != e["wait_reason"] || !slices.Equal(w.details.resources, stringList(e["blocking_resources"])) || !slices.Equal(w.details.units, stringList(e["blocking_unit_ids"])) {
+		if !ok || w.closed || w.reason != e["wait_reason"] {
 			return errCanonical
 		}
+		holders, err := f.waitAttribution(id, w.reason, at-w.segmentStart, e)
+		if err != nil {
+			return err
+		}
 		w.end, w.closed = at, true
-		w.byReason[w.details.reason] += at - w.segmentStart
-		if w.details.reason == "resources" {
-			for _, holder := range w.details.units {
+		w.byReason[w.reason] += at - w.segmentStart
+		if w.reason == "resources" {
+			for _, holder := range holders {
 				w.holders[holder] = true
 			}
 			if at > w.segmentStart {

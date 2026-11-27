@@ -49,7 +49,7 @@ function fixture(t, mode = "machine") {
   writeFileSync(path.join(runRoot, "unit-events.ndjson"), [
     { seq: 1, monotonic_ms: 0, event: "run_started", status: "running" },
     { seq: 2, monotonic_ms: 1, event: "run_completed", status: "passed" },
-  ].map((e) => JSON.stringify({ schema_id: "cartulary.harness_unit_event.v4", unit_id: "run",
+  ].map((e) => JSON.stringify({ schema_id: "cartulary.harness_unit_event.v5", unit_id: "run",
     needs: [], resource_claims: {}, service_dependencies: [], ...e })).join("\n") + "\n", { mode: 0o600 });
   const options = { repoRoot, targetName: "source-check", mode, runRoot, runID,
     stdout: Buffer.from(mode === "machine" ? `${JSON.stringify(run)}\n` :

@@ -11,7 +11,7 @@ import {
 
 function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
   return {
-    schema_id: "cartulary.harness_unit_event.v4",
+    schema_id: "cartulary.harness_unit_event.v5",
     seq,
     monotonic_ms: monotonicMs,
     event: kind,
@@ -21,15 +21,12 @@ function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
     resource_claims: {},
     service_dependencies: [],
     ...(kind === "queued" ? { unit_kind: "runner", row_ids: [] } : {}),
+    ...(kind === "wait_ended" ? { blocked_resources: [], blocking_units: [], blocking_units_omitted: 0 } : {}),
     ...extra,
   };
 }
 
-const wait = {
-  wait_reason: "rank",
-  blocking_resources: [],
-  blocking_unit_ids: [],
-};
+const wait = { wait_reason: "rank" };
 
 function writeEvents(directory, name, events) {
   const file = path.join(directory, name);
@@ -281,33 +278,43 @@ test("normalized facts retain cache outcomes, zero-duration hits, cancellation a
   }
 });
 
-// Many holder transitions must not retain an array of every historical segment.
-test("wait segments compact changing holders and preserve exact reason totals", async (t) => {
+// Holder changes inside a reason are attribution on wait_ended, not segments.
+test("wait segments carry bounded attribution and preserve exact reason totals", async (t) => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-wait-segments-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const events = [];
   const add = (time, kind, extra = {}) => events.push(event(events.length + 1, time, kind, "a", "pending", extra));
   for (const id of ["a", "b", "c"]) events.push(event(events.length + 1, 0, "queued", id, "pending"));
+  const held = { wait_reason: "resources" };
+  const attribution = { ...held, blocked_resources: [{ resource: "cpu", blocked_ms: 2000 }],
+    blocking_units: [{ unit_id: "b", overlap_ms: 1000 }, { unit_id: "c", overlap_ms: 1000 }], blocking_units_omitted: 0 };
   add(0, "eligible"); add(0, "wait_started", wait); add(3, "wait_ended", wait);
-  for (let i = 0; i < 2000; i++) {
-    const detail = { wait_reason: "resources", blocking_resources: ["cpu"], blocking_unit_ids: [i % 2 ? "b" : "c"] };
-    add(3 + i, "wait_started", detail); add(4 + i, "wait_ended", detail);
-  }
+  add(3, "wait_started", held); add(2003, "wait_ended", attribution);
   add(2003, "wait_started", wait); add(2005, "wait_ended", wait);
   add(2005, "admitted"); add(2005, "started");
   events.push(event(events.length + 1, 2010, "completed", "a", "passed"));
   const facts = await reduceCanonicalUnitIntervals(writeEvents(dir, "segments.ndjson", events));
   const value = facts.waits.get("a");
-  assert.equal(value.count, 2002);
+  assert.equal(value.count, 3);
   assert.deepEqual(value.resource_intervals, [{ start: 3, end: 2003 }]);
+  assert.deepEqual([...value.resource_holders].sort(), ["b", "c"]);
   assert.deepEqual(value.by_reason, { resources: 2000, exclusive_barrier: 0, rank: 5, scheduler_stop: 0 });
   assert.equal(facts.intervals.get("a").queue_ms, 2005);
-  for (const mutation of ["overlap", "after_admission", "old_schema", "unchanged"]) {
+  const mutations = {
+    overlap: (altered) => { altered[5].event = "wait_started"; },
+    after_admission: (altered) => { Object.assign(altered.at(-1), { event: "wait_started", ...wait }); },
+    old_schema: (altered) => { altered[0].schema_id = "cartulary.harness_unit_event.v4"; },
+    unchanged: (altered) => { altered[8].wait_reason = "resources"; },
+    over: (altered) => { altered[7].blocked_resources[0].blocked_ms = 2001; },
+    under: (altered) => { altered[7].blocked_resources[0].blocked_ms = 1999; },
+    unordered: (altered) => { altered[7].blocking_units.reverse(); },
+    self: (altered) => { altered[7].blocking_units[0].unit_id = "a"; },
+    omitted: (altered) => { altered[7].blocking_units_omitted = 1; },
+    rank_attribution: (altered) => { altered[5].blocking_units = [{ unit_id: "b", overlap_ms: 1 }]; },
+  };
+  for (const [mutation, alter] of Object.entries(mutations)) {
     const altered = structuredClone(events);
-    if (mutation === "overlap") altered[5].event = "wait_started";
-    if (mutation === "old_schema") altered[0].schema_id = "cartulary.harness_unit_event.v3";
-    if (mutation === "after_admission") Object.assign(altered.at(-1), { event: "wait_started", ...wait });
-    if (mutation === "unchanged") Object.assign(altered[8], { blocking_unit_ids: ["c"] });
-    await assert.rejects(reduceCanonicalUnitIntervals(writeEvents(dir, `${mutation}.ndjson`, altered)));
+    alter(altered);
+    await assert.rejects(reduceCanonicalUnitIntervals(writeEvents(dir, `${mutation}.ndjson`, altered)), undefined, mutation);
   }
 });

@@ -133,7 +133,7 @@ export function registerBoundariesTests() {
       "cartulary.harness_work_graph.v10.schema.json",
       "cartulary.harness_runtime_plan.v10.schema.json",
       "cartulary.harness_run_manifest.v3.schema.json",
-      "cartulary.harness_unit_event.v4.schema.json",
+      "cartulary.harness_unit_event.v5.schema.json",
       "cartulary.harness_run_summary.v1.schema.json",
     ])
       assert.ok(existsSync(path.join(root, "tools/schemas", schema)));

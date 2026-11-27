@@ -2,6 +2,7 @@ package harnessruntime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
@@ -35,6 +36,41 @@ func boundedGraph(t *testing.T, p *Plan, ports enginePorts) graphResult {
 		t.Fatal("engine did not drain")
 	}
 	return r
+}
+
+// endedBlockers names the resources and units a wait_ended attributes.
+func endedBlockers(event map[string]any) (resources, units []string) {
+	list, _ := objectList(event["blocked_resources"])
+	for _, r := range list {
+		resources = append(resources, r["resource"].(string))
+	}
+	list, _ = objectList(event["blocking_units"])
+	for _, u := range list {
+		units = append(units, u["unit_id"].(string))
+	}
+	return resources, units
+}
+func TestWaitSegmentAttribution(t *testing.T) {
+	s := newWaitSegment(waitDetails{"resources", []string{"cpu"}, []string{"a"}}, 10)
+	s.decide(waitDetails{"resources", []string{"cpu", "memory"}, []string{"a", "b"}}, 14)
+	s.decide(waitDetails{"resources", []string{"memory"}, []string{"c"}}, 20)
+	s.decide(s.current, 25)
+	got, _ := json.Marshal(s.attribution())
+	want := `{"blocked_resources":[{"blocked_ms":10,"resource":"cpu"},{"blocked_ms":11,"resource":"memory"}],"blocking_units":[{"overlap_ms":10,"unit_id":"a"},{"overlap_ms":6,"unit_id":"b"},{"overlap_ms":5,"unit_id":"c"}],"blocking_units_omitted":0,"wait_reason":"resources"}`
+	if string(got) != want {
+		t.Fatalf("attribution %s want %s", got, want)
+	}
+	// A blocker decided at the closing instant counts zero but is named; the
+	// bound keeps the eight largest overlaps, ties by unit ID.
+	ids := []string{"h0", "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9"}
+	s = newWaitSegment(waitDetails{"resources", []string{"cpu"}, ids[:9]}, 0)
+	s.decide(waitDetails{"resources", []string{"cpu"}, ids}, 4)
+	s.decide(s.current, 4)
+	a := s.attribution()
+	_, units := endedBlockers(a)
+	if !slices.Equal(units, []string{"h0", "h1", "h2", "h3", "h4", "h5", "h6", "h7"}) || a["blocking_units_omitted"] != 2 {
+		t.Fatal(a)
+	}
 }
 func TestRuntimeScheduling(t *testing.T) {
 	testConsumerTerminalTransitions(t)
@@ -134,13 +170,47 @@ func TestRuntimeScheduling(t *testing.T) {
 		for _, e := range r.Events {
 			if e["unit_id"] == "waiter" && e["event"] == "wait_started" {
 				reasons = append(reasons, e["wait_reason"].(string))
-				if e["wait_reason"] == "resources" && !slices.Equal(stringList(e["blocking_unit_ids"]), []string{"holder"}) {
-					t.Fatal(e)
-				}
+			}
+			if _, units := endedBlockers(e); e["unit_id"] == "waiter" && e["event"] == "wait_ended" && e["wait_reason"] == "resources" && !slices.Equal(units, []string{"holder"}) {
+				t.Fatal(e)
 			}
 		}
 		if !slices.Equal(reasons, []string{"rank", "resources", "rank"}) {
 			t.Fatal(reasons)
+		}
+		facts := newCanonicalFacts(p)
+		for _, e := range r.Events {
+			if err := facts.consume(e); err != nil {
+				t.Fatal(e, err)
+			}
+		}
+		if err := facts.validate(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("changing_holders_stay_in_one_attributed_segment", func(t *testing.T) {
+		first, second, waiter := engineUnit("first", 100), engineUnit("second", 90), engineUnit("waiter", 1)
+		waiter.Claims["cpu"] = 2
+		p := enginePlan(first, second, waiter)
+		p.facts.Capacities["cpu"] = 2
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Execute: func(_ context.Context, request executionRequest) unitResult {
+			time.Sleep(map[string]time.Duration{"first": 5 * time.Millisecond, "second": 20 * time.Millisecond}[request.Unit.ID])
+			return unitResult{Status: "passed"}
+		}})
+		segments := 0
+		for _, e := range r.Events {
+			if e["unit_id"] != "waiter" || e["event"] != "wait_ended" || e["wait_reason"] != "resources" {
+				continue
+			}
+			segments++
+			resources, units := endedBlockers(e)
+			slices.Sort(units)
+			if !slices.Equal(resources, []string{"cpu"}) || !slices.Equal(units, []string{"first", "second"}) || e["blocking_units_omitted"] != 0 {
+				t.Fatal("holder change was not attributed to the segment", e)
+			}
+		}
+		if segments != 1 {
+			t.Fatal("a holder change opened a new segment", segments)
 		}
 		facts := newCanonicalFacts(p)
 		for _, e := range r.Events {
@@ -278,8 +348,10 @@ func TestRuntimeScheduling(t *testing.T) {
 		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Now: func() time.Duration { return 0 }, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
 		found := false
 		for _, event := range r.Events {
-			if event["unit_id"] == "consumer" && event["event"] == "wait_started" && event["wait_reason"] == "exclusive_barrier" {
-				if !found && (!slices.Equal(stringList(event["blocking_unit_ids"]), []string{"left-holder", "right-holder"}) || !slices.Equal(stringList(event["blocking_resources"]), []string{"lock_left", "lock_right"})) {
+			if event["unit_id"] == "consumer" && event["event"] == "wait_ended" && event["wait_reason"] == "exclusive_barrier" {
+				resources, units := endedBlockers(event)
+				slices.Sort(units)
+				if !found && (!slices.Equal(units, []string{"left-holder", "right-holder"}) || !slices.Equal(resources, []string{"lock_left", "lock_right"})) {
 					t.Fatal(event)
 				}
 				found = true

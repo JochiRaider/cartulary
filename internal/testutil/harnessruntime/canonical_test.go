@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,7 +38,7 @@ func canonicalFixture(t *testing.T) (*Plan, []map[string]any) {
 		if id == "harness:run" {
 			u = unit{Needs: []string{}, Services: []string{}, Claims: map[string]int64{}}
 		}
-		e := map[string]any{"schema_id": "cartulary.harness_unit_event.v4", "seq": len(events) + 1, "monotonic_ms": at, "event": name, "unit_id": id, "status": status, "needs": u.Needs, "resource_claims": u.Claims, "service_dependencies": u.Services}
+		e := map[string]any{"schema_id": "cartulary.harness_unit_event.v5", "seq": len(events) + 1, "monotonic_ms": at, "event": name, "unit_id": id, "status": status, "needs": u.Needs, "resource_claims": u.Claims, "service_dependencies": u.Services}
 		for k, v := range extra {
 			e[k] = v
 		}
@@ -47,18 +48,18 @@ func canonicalFixture(t *testing.T) (*Plan, []map[string]any) {
 	for _, u := range []unit{a, b} {
 		emit(0, "queued", u.ID, "pending", map[string]any{"unit_kind": u.Kind, "row_ids": []string{}})
 		emit(0, "eligible", u.ID, "pending", nil)
-		emit(0, "wait_started", u.ID, "pending", waitDetails{"rank", []string{}, []string{}}.fields())
+		emit(0, "wait_started", u.ID, "pending", startedWait("rank"))
 	}
 	emit(10, "cache_bypass", "a", "pending", map[string]any{"cache_reason": "policy_none"})
-	emit(10, "wait_ended", "a", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
+	emit(10, "wait_ended", "a", "pending", endedWait("rank", nil, nil))
 	emit(10, "admitted", "a", "running", nil)
 	emit(10, "started", "a", "running", nil)
-	emit(10, "wait_ended", "b", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
-	emit(10, "wait_started", "b", "pending", waitDetails{"resources", []string{"cpu"}, []string{"a"}}.fields())
+	emit(10, "wait_ended", "b", "pending", endedWait("rank", nil, nil))
+	emit(10, "wait_started", "b", "pending", startedWait("resources"))
 	emit(15, "fixture_acquired", "a", "running", map[string]any{"fixture_lease_id": "fixture"})
-	emit(18, "wait_ended", "b", "pending", waitDetails{"resources", []string{"cpu"}, []string{"a"}}.fields())
-	emit(18, "wait_started", "b", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
-	emit(20, "wait_ended", "b", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
+	emit(18, "wait_ended", "b", "pending", endedWait("resources", map[string]int64{"cpu": 8}, map[string]int64{"a": 8}))
+	emit(18, "wait_started", "b", "pending", startedWait("rank"))
+	emit(20, "wait_ended", "b", "pending", endedWait("rank", nil, nil))
 	emit(20, "cache_bypass", "b", "pending", map[string]any{"cache_reason": "policy_none"})
 	emit(20, "admitted", "b", "running", nil)
 	emit(20, "started", "b", "running", nil)
@@ -68,6 +69,16 @@ func canonicalFixture(t *testing.T) (*Plan, []map[string]any) {
 	emit(45, "cleanup_completed", "harness:run", "passed", nil)
 	emit(45, "run_completed", "harness:run", "passed", nil)
 	return p, events
+}
+func startedWait(reason string) map[string]any { return map[string]any{"wait_reason": reason} }
+
+// endedWait builds a wait_ended's fields through the scheduler's own
+// attribution.
+func endedWait(reason string, blocked, overlap map[string]int64) map[string]any {
+	s := &waitSegment{current: waitDetails{reason: reason}, blocked: map[string]int64{}, overlap: map[string]int64{}}
+	maps.Copy(s.blocked, blocked)
+	maps.Copy(s.overlap, overlap)
+	return s.attribution()
 }
 func TestRuntimeCanonicalAccounting(t *testing.T) {
 	p, events := canonicalFixture(t)
@@ -100,15 +111,15 @@ func TestRuntimeCanonicalAccounting(t *testing.T) {
 	if pressure["peak_use"].(map[string]int64)["volume"] != 1 || pressure["saturation_ms"].(map[string]int64)["volume"] != 30 {
 		t.Fatal("writable-root capability did not span all owners", pressure)
 	}
-	for _, kind := range []string{"duplicate", "reversal", "missing_wait", "forged_identity", "missing_terminal", "old_schema", "wait_gap", "wait_overlap", "wait_mismatch", "foreign_holder"} {
+	for _, kind := range []string{"duplicate", "reversal", "missing_wait", "forged_identity", "missing_terminal", "old_schema", "wait_gap", "wait_overlap", "wait_mismatch", "unchanged_reason", "foreign_holder", "over_attribution", "under_attribution", "rank_attribution", "unbounded_omission"} {
 		t.Run(kind, func(t *testing.T) {
 			bytes, _ := json.Marshal(events)
 			var altered []map[string]any
 			_ = json.Unmarshal(bytes, &altered)
 			switch kind {
 			case "old_schema":
-				altered[0]["schema_id"] = "cartulary.harness_unit_event.v3"
-			case "wait_gap", "wait_overlap", "wait_mismatch", "foreign_holder":
+				altered[0]["schema_id"] = "cartulary.harness_unit_event.v4"
+			case "wait_gap", "wait_overlap", "unchanged_reason":
 				for _, e := range altered {
 					if e["unit_id"] == "b" && e["event"] == "wait_started" && e["wait_reason"] == "resources" {
 						switch kind {
@@ -116,10 +127,33 @@ func TestRuntimeCanonicalAccounting(t *testing.T) {
 							e["monotonic_ms"] = float64(11)
 						case "wait_overlap":
 							e["event"] = "wait_ended"
+							maps.Copy(e, endedWait("resources", map[string]int64{"cpu": 0}, map[string]int64{"a": 0}))
+						case "unchanged_reason":
+							e["wait_reason"] = "rank"
+						}
+						break
+					}
+				}
+			case "wait_mismatch", "foreign_holder", "over_attribution", "under_attribution", "rank_attribution", "unbounded_omission":
+				for _, e := range altered {
+					at := float64(18)
+					if kind == "rank_attribution" {
+						at = 20
+					}
+					if e["unit_id"] == "b" && e["event"] == "wait_ended" && e["monotonic_ms"] == at {
+						switch kind {
 						case "wait_mismatch":
-							e["blocking_resources"] = []any{"memory"}
+							e["wait_reason"] = "exclusive_barrier"
 						case "foreign_holder":
-							e["blocking_unit_ids"] = []any{"foreign"}
+							e["blocking_units"] = []any{map[string]any{"unit_id": "foreign", "overlap_ms": float64(8)}}
+						case "over_attribution":
+							e["blocked_resources"] = []any{map[string]any{"resource": "cpu", "blocked_ms": float64(9)}}
+						case "under_attribution":
+							e["blocked_resources"] = []any{map[string]any{"resource": "cpu", "blocked_ms": float64(7)}}
+						case "rank_attribution":
+							maps.Copy(e, endedWait("rank", map[string]int64{"cpu": 2}, map[string]int64{"a": 2}))
+						case "unbounded_omission":
+							e["blocking_units_omitted"] = float64(1)
 						}
 						break
 					}

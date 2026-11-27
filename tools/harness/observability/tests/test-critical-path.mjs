@@ -48,7 +48,7 @@ test("canonical wait pages reconcile exact reasons and remain read-only",async(t
  const dir=mkdtempSync(path.join(os.tmpdir(),"cartulary-path-"));t.after(()=>rmSync(dir,{recursive:true,force:true}));persistEvidence(dir, buildReaderEvidence({ runID: path.basename(dir), ...loadFixtureIdentity() }));
  const before=readdirSync(dir,{recursive:true});
  const result=JSON.parse(formatCriticalPath(await criticalPathExplanation(dir,{view:"waits"}),{json:true}));
- assert.equal(result.total_count,1);assert.equal(result.records[0].duration_ms,2);assert.equal(result.records[0].wait_reason,"rank");assert.deepEqual(result.records[0].blocking_unit_ids,[]);
+ assert.equal(result.total_count,1);assert.equal(result.records[0].duration_ms,2);assert.equal(result.records[0].wait_reason,"rank");assert.deepEqual(result.records[0].blocking_units,[]);assert.deepEqual(result.records[0].blocked_resources,[]);assert.equal(result.records[0].blocking_units_omitted,0);
  assert.equal(result.path_totals.queue_ms,2);assert.deepEqual(readdirSync(dir,{recursive:true}),before);
  rmSync(path.join(dir,"diagnostics/execution-index.json"));
  const unavailable=await criticalPathExplanation(dir,{view:"allocations"});assert.equal(unavailable.coverage.allocation_lifecycle,"unavailable");assert.equal(unavailable.total_count,0);

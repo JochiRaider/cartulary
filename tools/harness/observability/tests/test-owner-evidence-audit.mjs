@@ -195,11 +195,12 @@ test("owner audit accepts cache reuse from canonical events without inventing a 
     const kinds = ["queued", "eligible", "wait_started", "wait_ended",
       ...(index === 0 ? ["cache_hit"] : ["cache_miss", "admitted", "started"]), "completed"];
     for (const kind of kinds) {
-      events.push({ schema_id: "cartulary.harness_unit_event.v4", seq: events.length + 1,
+      events.push({ schema_id: "cartulary.harness_unit_event.v5", seq: events.length + 1,
         monotonic_ms: index, event: kind, unit_id: unit.unit_id,
         status: kind === "completed" ? "passed" : "pending", needs: [], resource_claims: {}, service_dependencies: [],
         ...(kind === "queued" ? { unit_kind: "runner", row_ids: [f.rows[index].row_id] } : {}),
-        ...(kind.startsWith("wait_") ? { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] } : {}),
+        ...(kind === "wait_started" ? { wait_reason: "rank" } : {}),
+        ...(kind === "wait_ended" ? { wait_reason: "rank", blocked_resources: [], blocking_units: [], blocking_units_omitted: 0 } : {}),
         ...(kind.startsWith("cache_") ? { cache_profile_id: "fixture", cache_reason: "fixture" } : {}),
       });
     }

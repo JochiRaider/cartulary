@@ -17,13 +17,14 @@ export function buildReaderEvidence({ runID, target = "test-slice", commandID,
   const outcome = outcomes[unitID] ?? "passed";
   const terminalEvent = outcome === "passed" ? "completed" : outcome;
   const projectionInputs = structuredClone(projections ?? { [target]: { command_id: commandID, unit_ids: [unitID] } });
-  const wait = { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] };
+  const started = { wait_reason: "rank" };
+  const ended = { wait_reason: "rank", blocked_resources: [], blocking_units: [], blocking_units_omitted: 0 };
   const events = [
     ["run_started", 0], ["queued", 0, { unit_kind: selected.kind, row_ids: selected.row_bindings.map((row) => row.row_id) }],
-    ["eligible", 0], ["wait_started", 0, wait], ["wait_ended", 2, wait],
+    ["eligible", 0], ["wait_started", 0, started], ["wait_ended", 2, ended],
     ["admitted", 2], ["started", 2], [terminalEvent, 9],
     ["cleanup_started", 9], ["cleanup_completed", 10], ["run_completed", 10],
-  ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v4",
+  ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v5",
     seq: index + 1, monotonic_ms, event, unit_id: /^(run_|cleanup_)/u.test(event) ? "harness:run" : unitID,
     status: event === "cleanup_completed" ? "passed" : [terminalEvent, "run_completed"].includes(event) ? outcome : "running",
     needs: [], resource_claims: /^(run_|cleanup_)/u.test(event) ? {} : { cpu: 1, process: 1 }, service_dependencies: [], ...extra }));

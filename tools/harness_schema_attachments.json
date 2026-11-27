@@ -421,8 +421,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_critical_path.v5",
-      "path": "tools/schemas/cartulary.harness_critical_path.v5.schema.json",
+      "schema_id": "cartulary.harness_critical_path.v6",
+      "path": "tools/schemas/cartulary.harness_critical_path.v6.schema.json",
       "classification": "public_contract",
       "producer": "harness critical-path diagnostics",
       "validation": "harness.json_shape_check"
@@ -909,8 +909,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_unit_event.v4",
-      "path": "tools/schemas/cartulary.harness_unit_event.v4.schema.json",
+      "schema_id": "cartulary.harness_unit_event.v5",
+      "path": "tools/schemas/cartulary.harness_unit_event.v5.schema.json",
       "classification": "public_contract",
       "producer": "unified harness scheduler",
       "validation": "harness.json_shape_check",

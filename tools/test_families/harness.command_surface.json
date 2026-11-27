@@ -1103,7 +1103,8 @@
       "selector": {
         "package": "./internal/testutil/harnessruntime",
         "tests": [
-          "TestRuntimeScheduling"
+          "TestRuntimeScheduling",
+          "TestWaitSegmentAttribution"
         ]
       },
       "evidence_class": "unit",

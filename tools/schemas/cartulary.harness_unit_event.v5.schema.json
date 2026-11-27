@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_unit_event.v4",
+  "$id": "cartulary.harness_unit_event.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_unit_event.v4"
+      "const": "cartulary.harness_unit_event.v5"
     },
     "seq": {
       "type": "integer",
@@ -87,20 +87,53 @@
         "scheduler_stop"
       ]
     },
-    "blocking_resources": {
+    "blocked_resources": {
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9_]*$"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource",
+          "blocked_ms"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "blocked_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     },
-    "blocking_unit_ids": {
+    "blocking_units": {
       "type": "array",
+      "maxItems": 8,
       "uniqueItems": true,
       "items": {
-        "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "overlap_ms"
+        ],
+        "properties": {
+          "unit_id": {
+            "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+          },
+          "overlap_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
+    },
+    "blocking_units_omitted": {
+      "type": "integer",
+      "minimum": 0
     },
     "cache_profile_id": {
       "type": "string",
@@ -187,10 +220,48 @@
       },
       "then": {
         "required": [
-          "wait_reason",
-          "blocking_resources",
-          "blocking_unit_ids"
+          "wait_reason"
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event": {
+            "const": "wait_ended"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "required": [
+          "blocked_resources",
+          "blocking_units",
+          "blocking_units_omitted"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "blocked_resources"
+              ]
+            },
+            {
+              "required": [
+                "blocking_units"
+              ]
+            },
+            {
+              "required": [
+                "blocking_units_omitted"
+              ]
+            }
+          ]
+        }
       }
     },
     {

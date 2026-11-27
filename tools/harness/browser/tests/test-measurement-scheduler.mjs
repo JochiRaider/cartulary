@@ -19,7 +19,7 @@ test("scheduler evidence admits bounded private prefixes and rejects overlap and
         const writeEvent = (event) => {
             seq += 1;
             writeSync(file, `${JSON.stringify({
-                schema_id: "cartulary.harness_unit_event.v4",
+                schema_id: "cartulary.harness_unit_event.v5",
                 seq,
                 monotonic_ms: seq,
                 resource_claims: {},
@@ -102,7 +102,7 @@ test("scheduler evidence admits bounded private prefixes and rejects overlap and
             { event: "completed", status: "passed", unit_id: "row:ordinary" },
             { event: "completed", status: "passed", unit_id: measurementUnitID },
         ].map((entry, index) => ({
-            schema_id: "cartulary.harness_unit_event.v4",
+            schema_id: "cartulary.harness_unit_event.v5",
             seq: index + 1,
             monotonic_ms: index + 1,
             resource_claims: {},
@@ -131,7 +131,7 @@ test("scheduler evidence admits bounded private prefixes and rejects overlap and
         ]) {
             const file = path.join(schedulerStreamRoot, `${scenario.name}.ndjson`);
             const events = scenario.events.map(([event, unit_id], index) => ({
-                schema_id: "cartulary.harness_unit_event.v4", event, unit_id,
+                schema_id: "cartulary.harness_unit_event.v5", event, unit_id,
                 status: event === "started" ? "running" : "passed", seq: index + 1, monotonic_ms: index + 1,
                 resource_claims: {}, needs: [], service_dependencies: [],
             }));
@@ -144,7 +144,7 @@ test("scheduler evidence admits bounded private prefixes and rejects overlap and
         await assert.rejects(readMeasurementSchedulerEvidence({ file: incompleteFile }, measurementGroupResult), /lacks a closed scheduler interval/u, "incomplete scheduler proof must fail closed");
         const skippedFile = path.join(schedulerStreamRoot, "skipped-events.ndjson");
         writeFileSync(skippedFile, `${JSON.stringify({
-            schema_id: "cartulary.harness_unit_event.v4",
+            schema_id: "cartulary.harness_unit_event.v5",
             event: "skipped",
             failure_reason: "dependency_failure",
             monotonic_ms: 1,
@@ -159,7 +159,7 @@ test("scheduler evidence admits bounded private prefixes and rejects overlap and
         assert.equal(skippedEvidence.dependency_skipped, true);
         const invalidSequenceFile = path.join(schedulerStreamRoot, "invalid-sequence-events.ndjson");
         writeFileSync(invalidSequenceFile, `${JSON.stringify({
-            schema_id: "cartulary.harness_unit_event.v4",
+            schema_id: "cartulary.harness_unit_event.v5",
             event: "started",
             monotonic_ms: 1,
             resource_claims: {},

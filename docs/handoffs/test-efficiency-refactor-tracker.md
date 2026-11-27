@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 is recorded (16.6). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 and P7-1 are done (16.6, 16.7). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1398,6 +1398,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | Phase 6 plan | Traced the five Phase 5 residuals and proposed Phase 6 (P6-0 to P6-6, G48 to G52, D30 to D34) | `p147` (startup timing), registry and work-graph scans | Proposed; awaiting the owner's decisions (15.5) |
 | 2026-11-27 | Phase 7 plan | Traced the two Phase 6 residuals (run-root size, wall-time margin) and proposed Phase 7 (P7-0 to P7-6, G56 to G63, D35 to D41) | `p6-6-check02`, `p6-6-ci04`, `p7-0-psi-check` (host pressure, disk and PostgreSQL size sampling) | Approved as recommended (16.5) |
 | 2026-11-27 | P7-0 | Post-graph time split; readers of wait events and of raw Playwright, Fallow and fixture output inventoried; the 16.1 scan inference corrected | `p7-0-split-check` (timed runtime), scan copies of `p6-6-check02` and `p6-6-ci04` | Recorded (16.6) |
+| 2026-11-27 | P7-1 / G56 | Wait segments change only with their reason; `wait_ended` carries bounded attribution; unit events v5 and critical path v6; every reader cut over | Same-run v4-to-v5 conversion of `p6-6-check02` and `p6-6-ci04`; `p7-1-seg-contract`, `p7-1-seg-cmd`, `p7-1-seg-ev`, `p7-1-seg-browser`, `p7-1-check01`, `p7-1-seg-lintgo`, `p7-1-seg-cmd2` | Pass after a format fix. Event log 270 to 3.2 MB, root 317 to 65 MB, 4.5 s outside the graph (16.7) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6336,3 +6337,89 @@ Section 9 applies.
   measured. Raw output is therefore kept for failures and for a separate
   explicit raw request; P7-2 settles that request's form in the spec,
   within D37.
+
+### 16.7 Wait Events v5 (P7-1, done)
+
+- **Specification.** REQ-371 now opens a successor segment only when the
+  reason changes. Blockers that change within a reason are attributed on
+  `wait_ended`:
+  - `blocked_resources`: every blocking resource, with its blocked
+    milliseconds;
+  - `blocking_units`: the eight units with the most overlap, with their
+    overlap milliseconds;
+  - `blocking_units_omitted`: how many more there were.
+
+  The telemetry paragraph and the critical-path `waits` records follow it.
+  The unit event schema is v5 and the critical-path response v6, both
+  cutovers.
+- **Scheduler.** `engine.go` keeps one open segment per waiting unit. Each
+  decision boundary charges the blockers in force since the previous one, so
+  attribution is exact at the scheduler's own decision resolution. Every
+  boundary uses the instant the stream records, so attribution never
+  exceeds the emitted segment. Live views still show the current blockers.
+- **Readers.**
+  - The Go and Node canonical reducers check attribution against its
+    segment: resources sorted and covering the segment, units ordered and
+    bounded, holders registered and not the waiter itself, and no
+    attribution on `rank` or `scheduler_stop`.
+  - The critical-path `waits` view returns the attribution.
+  - `resource_holders` is now the union of attributed holders.
+- **Same-run comparison.** The v4 logs of `p6-6-check02` and `p6-6-ci04`
+  were converted offline to v5, the way the scheduler now records them, and
+  both forms were reduced:
+
+  | Measure | `check` v4 | `check` v5 | `ci` v4 | `ci` v5 |
+  | --- | ---: | ---: | ---: | ---: |
+  | Event log | 270 MB | 3.2 MB | 537 MB | 5.1 MB |
+  | Wait segments | 136,794 | 725 | 232,459 | 1,268 |
+  | Reason totals, resource-blocked intervals, blocked units, critical path | — | identical | — | identical |
+  | Distinct attributed holders | 371 | 33 | 497 | 52 |
+
+  Holders fall because each segment names only its eight largest overlaps.
+  The performance explanation listed 20 holders by ID from the full set, so
+  it never ranked them. The critical-path `waits` view now names each
+  segment's top holders with their overlap.
+- **Tests.**
+  - `TestWaitSegmentAttribution` (new) covers charging, zero-length
+    blockers, the bound and tie order.
+  - A new engine case keeps a waiter in one attributed segment across a
+    holder change.
+  - The canonical mutation cases add unchanged-reason, over- and
+    under-attribution, attribution on `rank`, and unbounded omission. The
+    Node reducer case replaces the holder-churn test with the same
+    mutations.
+- **Proof.**
+  - **Segments**, all passing:
+    - `p7-1-seg-contract`: `harness-contract`, 12 units, among them the
+      evidence, observation, boundary and browser-assurance contracts that
+      hold the changed Node tests;
+    - `p7-1-seg-cmd`: `scheduler_smoke` and `native_runtime`;
+    - `p7-1-seg-ev`: `contract_evidence_writer`;
+    - `p7-1-seg-browser`: the six non-explicit `harness.browser` rows that
+      run the runtime package.
+  - **Not run in the harness.** The fixture change in
+    `test-real-command-output.mjs` is a schema ID only. Its file passed
+    under `node --test`, which is not canonical verification; its `ci`-only
+    operation, `harness.assurance_output_contract`, joins P7-6's `ci`.
+  - **`p7-1-check01`.** 371 of 372 units passed in a 505 s graph.
+    `lint_go_format` failed on my edits' blank lines and import order. The
+    fix was `make format`, plus keeping `eligibleAt` at the raw decision time
+    so rank aging is unchanged. `p7-1-seg-lintgo` (`lint CHECK=go`) and
+    `p7-1-seg-cmd2` then passed. No second `check` was run.
+  - **Real-run figures**, against `p7-0-split-check`:
+
+    | Measure | Before | `p7-1-check01` |
+    | --- | ---: | ---: |
+    | `unit-events.ndjson` | 270 MB | 3.2 MB |
+    | Wait segments | 136,794 pairs | 725 |
+    | Run root | 317 MB | 65 MB |
+    | Retained secret scan | 6.8 s | 1.7 s |
+    | Outside the graph | 11.1 s | 4.5 s |
+
+    The 725 segments match the offline estimate exactly. Both readers work
+    on the run: the critical-path `waits` view names each segment's top
+    holders, and the performance view gives reason totals and segment
+    counts.
+  - **Exits.** The `check` event log is under D38's 10 MB. Its root is now
+    under the 150 MB target before G57 and G58. Its post-graph time is under
+    G59's 15 s. `ci` is measured in P7-6.

@@ -61,7 +61,7 @@ export function criticalPathModel(run, execution, target, query) {
   else records = [];
   const total = query.view === "waits" ? selected.reduce((sum, id) => sum + (run.waits.get(id)?.count ?? 0), 0) : records.length;
   return { ids, selected, positions, model: {
-    schema_id: "cartulary.harness_critical_path.v5", run_id: run.manifest.run_id, source_digest: run.manifest.source_digest,
+    schema_id: "cartulary.harness_critical_path.v6", run_id: run.manifest.run_id, source_digest: run.manifest.source_digest,
     graph_digest: run.manifest.graph_digest, target: summary.target, query,
     coverage: { canonical: "complete", allocation_lifecycle: lifecycle?.status ?? "unavailable", allocation_omissions: lifecycle?.omitted_records ?? null, host_admission: admission?.status ?? "unavailable", host_admission_omissions: admission?.omitted_records ?? null },
     path_totals: totals(run, ids, admission), filtered_totals: totals(run, selected, admission), total_count: total,
@@ -85,7 +85,8 @@ export async function criticalPathExplanation(runDir, options = {}) {
       const index = window.prefix + window.seen++;
       if (index < query.offset || index >= query.offset + query.limit) return;
       model.records.push({ unit_id: wait.unit_id, path_index: positions.get(wait.unit_id), start_ms: wait.start, end_ms: wait.end,
-        duration_ms: wait.end - wait.start, wait_reason: wait.wait_reason, blocking_resources: wait.blocking_resources, blocking_unit_ids: wait.blocking_unit_ids });
+        duration_ms: wait.end - wait.start, wait_reason: wait.wait_reason, blocked_resources: wait.blocked_resources,
+        blocking_units: wait.blocking_units, blocking_units_omitted: wait.blocking_units_omitted });
     } });
     if (again.eventDigest !== run.eventDigest || JSON.stringify(again.summary) !== JSON.stringify(run.summary) || JSON.stringify(again.manifest) !== JSON.stringify(run.manifest) || [...windows].some(([id, w]) => w.seen !== run.waits.get(id).count)) throw new Error("canonical evidence changed during critical-path query");
     model.records.sort((a, b) => a.path_index - b.path_index || a.start_ms - b.start_ms || a.end_ms - b.end_ms);

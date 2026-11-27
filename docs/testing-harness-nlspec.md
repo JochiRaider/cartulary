@@ -635,8 +635,9 @@ Telemetry MUST expose requested and resolved capacity, peak use, saturation
 intervals, queue duration, blocking resources, and actual resource holders.
 Waiting evidence MUST distinguish fitting work awaiting rank selection, resource
 blocking, exclusive-work blocking, and scheduler stop. A change in blocking
-reason or relevant holders MUST close the old wait segment and open its successor
-at the same decision boundary. A unit has at most one open segment; ordered,
+reason MUST close the old wait segment and open its successor at the same
+decision boundary; holders that change within a reason are attributed when the
+segment ends (TH-HARNESS-REQ-371). A unit has at most one open segment; ordered,
 nonoverlapping segments MUST exactly cover eligibility through admission or
 terminal cancellation. Eligibility occurs once. Canonical accounting, live views
 and retained readers MUST agree; initial holders MUST NOT be attributed to later
@@ -4770,7 +4771,7 @@ claim publication.
 | `cartulary.harness_cache_record.v2`             | `tools/schemas/cartulary.harness_cache_record.v2.schema.json`             | present           | Graph cache              | Before reuse or retained publication.     |
 | `cartulary.harness_fixture_lease.v5`            | `tools/schemas/cartulary.harness_fixture_lease.v5.schema.json`            | present           | Fixture broker           | Before lease use or cleanup.              |
 | `cartulary.harness_run_manifest.v3`             | `tools/schemas/cartulary.harness_run_manifest.v3.schema.json`             | present           | Graph runner             | Before scheduler admission.               |
-| `cartulary.harness_unit_event.v4`               | `tools/schemas/cartulary.harness_unit_event.v4.schema.json`               | present           | Graph scheduler          | Before event-stream publication.          |
+| `cartulary.harness_unit_event.v5`               | `tools/schemas/cartulary.harness_unit_event.v5.schema.json`               | present           | Graph scheduler          | Before event-stream publication.          |
 | `cartulary.harness_unit_result.v1`              | `tools/schemas/cartulary.harness_unit_result.v1.schema.json`              | present           | Graph runner             | Before unit completion is accepted.       |
 | `cartulary.harness_row_result.v6`               | `tools/schemas/cartulary.harness_row_result.v6.schema.json`               | present           | Runner adapters          | Before selected-row closure.              |
 | `cartulary.harness_go_failure_diagnostic.v3` | `tools/schemas/cartulary.harness_go_failure_diagnostic.v3.schema.json` | present | Go row adapter | Before retaining independent setup and cleanup evidence. |
@@ -5097,7 +5098,7 @@ The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.harness_work_graph.v10`, `cartulary.harness_target_plan.v7`,
 `cartulary.harness_row_result.v6`, `cartulary.harness_test_failure.v4`,
 `cartulary.harness_unit_result.v1`,
-`cartulary.harness_run_manifest.v3`, `cartulary.harness_unit_event.v4`,
+`cartulary.harness_run_manifest.v3`, `cartulary.harness_unit_event.v5`,
 `cartulary.harness_run_summary.v1`, `cartulary.harness_target_summary.v1`,
 `cartulary.task_guide_summary.v7`, and
 `cartulary.test_catalog_check_summary.v2`. Each required current attachment
@@ -5199,7 +5200,7 @@ The required current graph and evidence schema attachments are
 `cartulary.harness_fixture_lease.v5`,
 `cartulary.harness_run_manifest.v3`,
 `cartulary.harness_runtime_plan.v10`,
-`cartulary.harness_unit_event.v4`,
+`cartulary.harness_unit_event.v5`,
 `cartulary.harness_run_summary.v1`,
 and `cartulary.harness_target_summary.v1`. Historical scheduler,
 observability, timing, cache, performance, and evidence-root artifacts are
@@ -5258,7 +5259,7 @@ Verified by: TH-HARNESS-AC-075, TH-HARNESS-AC-076
 
 **TH-HARNESS-REQ-281**
 `unit-events.ndjson` is the sole current execution event stream. Each record
-validates as `cartulary.harness_unit_event.v4`; run-local `seq` starts at one and
+validates as `cartulary.harness_unit_event.v5`; run-local `seq` starts at one and
 has no gaps. Events cover run start, eligibility and waits, unit start and
 terminal state, resource and fixture ownership, cache disposition, cancellation,
 and run completion. Aggregate target summaries are projections of these events;
@@ -5411,7 +5412,7 @@ Verified by: TH-HARNESS-AC-135
 | Host pressure window                                 | Native graph runtime, failed units only         | `unit-logs/<unit-log-id>/host-pressure.json`                    | `cartulary.harness_host_pressure_window.v1`                   | Samples in graph-clock order; null shares for unreported resources; `truncated` when the ring rolled | Retained with the unit logs; diagnostic only, never evidence (TH-HARNESS-REQ-870). |
 | Stress summary                                       | `test-stress`                                   | `<stress-run-id>/test-stress/stress-summary.json`; repetitions are sibling run roots `<stress-run-id>-r<NN>` | `cartulary.harness_stress_summary.v1`                         | Repetitions in execution order with run ID, status, exit code, wall duration and sorted failed rows | Retained; explicit maintenance, never product evidence (TH-HARNESS-REQ-871). |
 | Run manifest                                         | Graph runner                                    | `run-manifest.json`                                             | `cartulary.harness_run_manifest.v3`                            | Immutable command, source, system, graph, capacity, cache-mode, and target-projection identity | Retained. |
-| Unit event stream                                    | Graph scheduler                                 | `unit-events.ndjson`                                            | `cartulary.harness_unit_event.v4`                              | `seq` strictly increases with no gaps; stable unit and resource ordering | Retained; sole current timing authority. |
+| Unit event stream                                    | Graph scheduler                                 | `unit-events.ndjson`                                            | `cartulary.harness_unit_event.v5`                              | `seq` strictly increases with no gaps; stable unit and resource ordering | Retained; sole current timing authority. |
 | Run summary                                          | Canonical evidence projector                    | `run-summary.json`                                              | `cartulary.harness_run_summary.v1`                             | Unit outcomes, interval unions, critical path, resources, cache, and row closure in stable order | Retained. |
 | Target summary                                       | Canonical evidence projector                    | `target-summaries/<target>.json`                                | `cartulary.harness_target_summary.v1`                          | One projection per selected public target; unit IDs and rows ordered deterministically | Retained. |
 | Unit result                                          | Unit runner                                     | `unit-results/<unit-id>.json`                                   | Schema declared by the unit evidence contract                 | Stable unit identity, terminal state, artifacts, and row references | Retained. |
@@ -7004,7 +7005,7 @@ MUST NOT be closed by lease cleanup.
 Verified by: TH-HARNESS-AC-061
 
 **TH-HARNESS-REQ-370**
-Every graph execution MUST emit `cartulary.harness_unit_event.v4` evidence that
+Every graph execution MUST emit `cartulary.harness_unit_event.v5` evidence that
 represents each work unit with its stable ID, declared dependency edges,
 normalized resource claims, eligibility instant, start instant, and terminal
 instant and state.
@@ -7019,19 +7020,34 @@ Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-077
 **TH-HARNESS-REQ-371**
 For every work unit the event stream contains exactly one `eligible` boundary.
 Its eligible but unstarted interval is partitioned into contiguous, nonoverlapping
-segments, each with matching `wait_started` and `wait_ended` boundaries. A change
-in reason, blocking logical resources or blocking unit IDs closes the old segment
-and opens the next at the same monotonic instant. Reasons are `resources` for
-held claims or locks, `exclusive_barrier` for a ready exclusive consumer blocking
-shared backfill, `rank` for fitting work awaiting selection, and `scheduler_stop`.
-Resources and blocker IDs are sorted and unique. Zero-duration segments remain
-valid. The final boundary precedes admission or an unstarted terminal event at
-the same instant. Missing, overlapping, gapped, mismatched, or post-admission
-segments are `scheduler_accounting_error`. Queue duration includes all segments;
-resource-blocked duration unions only held-resource segments. Rank and exclusive
-barriers are reported separately and are not resource consumption. Bounded
-performance views expose per-unit reason totals and segment counts; reducers
-compact adjacent resource intervals rather than retaining all changing holders.
+segments, each with matching `wait_started` and `wait_ended` boundaries. Only a
+change of reason closes the old segment and opens the next at the same monotonic
+instant, so consecutive segments of a unit have different reasons. Reasons are
+`resources` for held claims or locks, `exclusive_barrier` for a ready exclusive
+consumer blocking shared backfill, `rank` for fitting work awaiting selection,
+and `scheduler_stop`.
+
+Blockers that change within a segment are attributed on its `wait_ended`, from
+what the scheduler decided at each decision boundary inside the segment. A
+blocker present at one boundary counts from it until the next boundary or the
+segment's end. `blocked_resources` lists every blocking logical resource once,
+sorted by name, with the milliseconds it blocked. `blocking_units` lists at most
+eight blocking units, ordered by overlap milliseconds descending and then unit
+ID, and `blocking_units_omitted` counts the rest. A `resources` or
+`exclusive_barrier` segment names at least one resource and one unit, no value
+exceeds the segment's duration, and the resources' milliseconds sum to at least
+that duration. A `rank` or `scheduler_stop` segment carries empty attribution.
+The canonical stream does not record each change of holders; live views show the
+current blockers.
+
+Zero-duration segments remain valid. The final boundary precedes admission or an
+unstarted terminal event at the same instant. Missing, overlapping, gapped,
+mismatched, unchanged-reason, or post-admission segments, and attribution outside
+these bounds, are `scheduler_accounting_error`. Queue duration includes all
+segments; resource-blocked duration unions only held-resource segments. Rank and
+exclusive barriers are reported separately and are not resource consumption.
+Bounded performance views expose per-unit reason totals, segment counts and the
+attributed holders.
 Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-077
 
 **TH-HARNESS-REQ-372**
@@ -7226,7 +7242,7 @@ Dependency skips are propagation records, not additional root failures.
 
 | Event field             | Rule                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------- |
-| `schema_id`             | `cartulary.harness_unit_event.v4`.                                           |
+| `schema_id`             | `cartulary.harness_unit_event.v5`.                                           |
 | `unit_id`               | Stable semantic work-unit identity.                                          |
 | `needs`                 | Stable ASCII-sorted declared dependency IDs.                                 |
 | `seq`                   | Starts at `1`, increments by `1`, no gaps.                                   |
@@ -8084,7 +8100,7 @@ with artifact_error (normalized exit 11). Missing optional diagnostics SHALL rem
 unavailability, not an artifact failure. Existing comparison admission remains
 unchanged; this view SHALL NOT accept comparison inputs.
 
-Response schema `cartulary.harness_critical_path.v5` SHALL bind run, source,
+Response schema `cartulary.harness_critical_path.v6` SHALL bind run, source,
 graph, selected target, normalized query and coverage. It SHALL report total
 filtered records, returned records and nullable next_offset. Units SHALL follow
 the reconstructed target-local dependency path and its existing tie rules.
@@ -8105,8 +8121,9 @@ vocabulary. The sum of reason durations SHALL equal the canonical queue total;
 a nonclosing partition SHALL fail as contradictory evidence. Units SHALL expose lifetime, canonical phase intervals/durations (including host
 admission, acquisition, runner, release and publication) and uncovered lifetime.
 Phase coverage SHALL use interval union within unit lifetime; overlaps SHALL be
-reported separately. Wait records SHALL retain simultaneous blocking resources
-and units. Graph queue and host admission SHALL remain separate. Simultaneous
+reported separately. Wait records SHALL carry each segment's attribution
+(TH-HARNESS-REQ-371): its blocked resources with their milliseconds, its top
+blocking units with their overlap, and the omitted unit count. Graph queue and host admission SHALL remain separate. Simultaneous
 blockers and overlapping phases SHALL NOT be summed as exclusive wall-clock
 causes. Resource claims SHALL NOT be represented as measured utilization.
 
