@@ -198,12 +198,12 @@ assert.match(
   /\ntest-slice:\n\t\$\(Q\)\$\(call RUN_COMMAND_ENTRY,test-slice,installed,[^\n]*\n\n/,
   "a work-graph target with a selector is one admitted command entry call on the installed runtime",
 );
-assert.match(renderedRuntime, /^RUN_COMMAND_ENTRY = env \$\(TASK_SURFACE_COMMAND_ENV\) \$\(3\) \$\(RUN_ADMITTED\) \$\(TASK_SURFACE_COMMAND_ENTRY\) \$\(2\) \$\(1\)$/m,
+assert.match(renderedRuntime, /^RUN_COMMAND_ENTRY = env \$\(TASK_SURFACE_COMMAND_ENV\) \$\(3\) \$\(RUN_ADMITTED\) \$\(TASK_SURFACE_COMMAND_ENTRY\) \$\(2\) \$\(1\) \$\(4\)$/m,
   "the admitted command entry receives each public input with its origin");
 // One rule per target: the entry sets each target's exports and run
 // identity, so no target-scope variable remains.
 const flatMake = renderedMake.replace(/\\\r?\n[ \t]*/gu, "");
-for (const recipe of makeRecipeEntries(manifest).filter((value) => ["graph", "step", "tool"].includes(entryRecipeFamily(value, value.target)))) {
+for (const recipe of makeRecipeEntries(manifest).filter((value) => ["graph", "step", "tool", "review"].includes(entryRecipeFamily(value, value.target)))) {
   const escapedTarget = recipe.target.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   assert.match(flatMake, new RegExp(`(?:^|\\n\\n)${escapedTarget}:\\n\\t\\$\\(Q\\)\\$\\(call RUN_COMMAND_ENTRY,${escapedTarget},(?:install|installed),[^\\n]*\\n\\n`, "u"),
     `${recipe.target} is one rule with one admitted command entry call`);
@@ -212,6 +212,8 @@ for (const recipe of makeRecipeEntries(manifest).filter((value) => ["graph", "st
 for (const target of manifest.targets.filter((entry) => entry.output_policy?.artifact_policy === "ui_review_receipts")) {
   const recipe = manifest.make_recipes[target.name];
   assert.equal(recipe.type, "ui_review", "private review uses its explicit output projection");
+  assert.match(flatMake, new RegExp(`\\n${target.name}:\\n\\t\\$\\(Q\\)\\$\\(call RUN_COMMAND_ENTRY,${target.name},installed,[^\\n]*,ui_review\\)\\n`, "u"),
+    `${target.name} runs through the entry and reports an unavailable Node in its own envelope`);
   if (target.name === "ui-review") {
     assert.equal(target.input_contract.inputs.some((input) => input.name === "UI_SESSION"), false, "the launcher creates a locator");
   } else {

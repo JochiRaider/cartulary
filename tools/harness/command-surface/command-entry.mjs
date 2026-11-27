@@ -18,7 +18,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { HarnessConfigError, preflightPublicTarget } from "../contract/index.mjs";
 import { inputSourcesEnvironment, runContextEnvironment } from "../contract/run-context.mjs";
-import { operationArgv } from "../execution/operations.mjs";
+import { operationArgv, operationBindingNames, readOperationOwner } from "../execution/operations.mjs";
+import { childEnvironment } from "../runtime/child-environment.mjs";
 import { producerBindings, producerCommand, readProducerRegistry, splitProducedPrerequisites } from "../execution/producers.mjs";
 import {
   canonicalInputPaths, defaultTaskSurfaceManifestPath, entryRecipeFamily, graphForwardedInputNames, machineStateNames, publicMakeInputNames,
@@ -158,22 +159,47 @@ export function stepInvocation(target, env, { manifest, root = repositoryRoot })
   return { command: env.RUN_STEP_SCRIPT, args: [recipe.mode === "run_step" ? recipe.step_label : target, "--", ...child], env: runner, recipe };
 }
 
+// Roles whose names a harness tool never receives from its launcher: product
+// configuration and a test's own names.
+const undeclaredRoles = new Set(["product_derived", "product_interface", "test_internal"]);
+
+// declaredNames are the names a tool may receive from the entry, the rule unit
+// environments follow (TH-HARNESS Section 5.5, default-deny): the registered
+// harness names outside the product and test roles and the Make variables
+// operation executions name, never a public input. The process and tool
+// basics pass through childEnvironment itself.
+export function declaredNames(manifest, root = repositoryRoot) {
+  const registry = JSON.parse(readFileSync(path.join(root, "tools/harness_environment_registry.json"), "utf8"));
+  const publicNames = new Set(publicMakeInputNames(manifest));
+  const registered = Object.entries(registry.roles).filter(([role]) => !undeclaredRoles.has(role)).flatMap(([, names]) => names);
+  return [...new Set([...registered, ...operationBindingNames(readOperationOwner(root))])].filter((name) => !publicNames.has(name));
+}
+
 // toolInvocation returns a Node or owner tool's process: the Make tool
-// launcher with the tool's inputs, every public input's origin and the
-// target as its run context.
+// launcher with a default-deny environment of declared names, the tool's
+// inputs, every public input's origin and the target as its run context.
 export function toolInvocation(target, env, { manifest, root = repositoryRoot }) {
   const { entry, family, recipe } = publicRecipe(manifest, target);
   if (family !== "tool") throw new HarnessConfigError(`${target} is not a Node tool`, { reason: "usage_error" });
   const sources = parseSources(env.CARTULARY_MAKE_INPUT_SOURCES);
   const publicNames = publicMakeInputNames(manifest);
-  const tool = { ...env };
-  for (const name of publicNames) delete tool[name];
-  for (const name of machineStateNames) {
-    if (Object.hasOwn(env, name)) tool[name] = env[name];
-  }
+  const tool = childEnvironment(env, { pass: [...declaredNames(manifest, root), ...machineStateNames] });
   Object.assign(tool, { NODE_BIN: env.NODE_BIN ?? "" }, runContextEnvironment({ target, prepared: true }), originsOf(publicNames, sources));
   for (const name of toolInputNames(entry, recipe.tool_id)) tool[name] = forwardedValue(name, env, root);
   return { command: path.join(root, "tools/harness/execution/run-make-node-tool.sh"), args: [recipe.tool_id], env: tool, recipe };
+}
+
+// reviewInvocation returns a UI review command's process: its client with a
+// default-deny environment holding the command's own inputs and their
+// origins, the output mode, a caller's run identity and the names review
+// preparation forwards. The client validates its own inputs and identity.
+export async function reviewInvocation(target, env, { manifest, root = repositoryRoot }) {
+  const { entry, family } = publicRecipe(manifest, target);
+  if (family !== "review") throw new HarnessConfigError(`${target} is not a UI review command`, { reason: "usage_error" });
+  const { reviewForwarded } = await import("../browser/review-recipes.mjs");
+  const inputs = (entry.input_contract?.inputs ?? []).map((input) => input.name);
+  const pass = [...inputs, ...reviewForwarded(root), "CARTULARY_MAKE_INPUT_SOURCES", "CARTULARY_OUTPUT_MODE", "CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"];
+  return { command: env.NODE_BIN || process.execPath, args: [path.join(root, "tools/harness/browser/ui-review/cli.mjs"), target], env: childEnvironment(env, { pass }) };
 }
 
 // bootstrapOperation is the installation operation bootstrap selects: the
@@ -230,6 +256,11 @@ export async function runCommandEntry(target, inherited = process.env, root = re
   const manifest = JSON.parse(readFileSync(defaultTaskSurfaceManifestPath, "utf8"));
   const { family, recipe } = publicRecipe(manifest, target);
   const env = targetEnvironment(target, inherited, { manifest, root });
+  // The UI review client validates its own inputs and identity.
+  if (family === "review") {
+    const invocation = await reviewInvocation(target, env, { manifest, root });
+    return run(invocation.command, invocation.args, invocation.env);
+  }
   if (recipe.preflight_owner !== "entrypoint") preflightPublicTarget(target, env, { allowExistingRunRoot: recipe.existing_run_root === true });
   const produced = produce(root, recipeProducers(root, recipe), env);
   if (produced !== 0) return produced;

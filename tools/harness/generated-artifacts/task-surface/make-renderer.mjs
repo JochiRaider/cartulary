@@ -104,7 +104,6 @@ export function renderTaskSurfaceMakeRuntime(manifest, producers = checkoutProdu
     "TASK_SURFACE_INPUT_SOURCES = $(foreach name,$(1),$(name)=$(call task_surface_input_source,$(name)))",
     "TASK_SURFACE_COMMAND_LINE_INPUT_NAMES = $(filter-out GNUMAKEFLAGS MAKEFLAGS MFLAGS MAKEOVERRIDES,$(foreach name,$(.VARIABLES),$(if $(findstring command line,$(origin $(name))),$(name))))",
     "TASK_SURFACE_PREFLIGHT_INPUT_NAMES = $(sort $(TASK_SURFACE_PUBLIC_INPUT_NAMES) $(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES))",
-    "TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = $(foreach name,$(TASK_SURFACE_PUBLIC_INPUT_NAMES),-u $(name))",
     `TASK_SURFACE_MACHINE_STATE_ENV = ${machineStateNames.map((name) => `${name}="$(${name})"`).join(" ")}`,
     // Every managed recipe takes shared workspace admission itself, before
     // any preparation or write; Make parses once (P5-3e).
@@ -112,10 +111,12 @@ export function renderTaskSurfaceMakeRuntime(manifest, producers = checkoutProdu
     // The command entry admits a public target's inputs, produces its
     // producers and runs it (P5-3e). Make passes what only it knows: each
     // public input's value and origin. The admitted launcher readies Node
-    // first: $(2) is install or installed.
+    // first: $(2) is install or installed. $(4) names the result envelope a
+    // missing or incompatible Node is reported in, when it is not the
+    // harness's own.
     'TASK_SURFACE_COMMAND_ENV = $(TASK_SURFACE_LITERAL_INPUT_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" $(TASK_SURFACE_MACHINE_STATE_ENV) MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" HARNESS_RUNTIME_BIN="$(HARNESS_RUNTIME_BIN)"',
     "TASK_SURFACE_COMMAND_ENTRY = bash tools/harness/command-surface/command-entry.sh",
-    "RUN_COMMAND_ENTRY = env $(TASK_SURFACE_COMMAND_ENV) $(3) $(RUN_ADMITTED) $(TASK_SURFACE_COMMAND_ENTRY) $(2) $(1)",
+    "RUN_COMMAND_ENTRY = env $(TASK_SURFACE_COMMAND_ENV) $(3) $(RUN_ADMITTED) $(TASK_SURFACE_COMMAND_ENTRY) $(2) $(1) $(4)",
     "",
   ];
   const nativeRecipes = makeRecipeEntries(manifest).filter((recipe) => recipe.type === "native_tool");
@@ -184,15 +185,15 @@ function maximumLineBytes(content) {
 }
 
 // renderMakeRecipe renders one public target as one rule (P5-3e). A target
-// that runs through the command entry is one admitted entry call. Bootstrap
-// and help first admit their closed selectors, which they read before Node
-// exists. The Markdown lint and UI review take admission themselves; help,
+// that runs through the command entry is one admitted entry call; the UI review
+// does too (P6-3). Bootstrap and help first admit their closed selectors, which
+// they read before Node exists. The Markdown lint takes admission itself; help,
 // cleanup and the read-only run-status tool take none.
 function renderMakeRecipe(recipe, manifest) {
   const entry = targetEntryMap(manifest).get(recipe.target);
   if (entry?.target_class !== "public") throw new Error(`${recipe.target}: only a public target has a Make recipe`);
   const family = entryRecipeFamily(recipe, recipe.target);
-  if (["graph", "step", "tool"].includes(family)) return [`${recipe.target}:`, renderCommandEntryCall(recipe, entry)];
+  if (["graph", "step", "tool", "review"].includes(family)) return [`${recipe.target}:`, renderCommandEntryCall(recipe, entry)];
   if (family === "bootstrap") {
     return [`${recipe.target}:`, renderUndeclaredInputGuard(recipe.target, entry, manifest), ...renderBootstrapSelectorAdmission(entry),
       renderCommandEntryCall(recipe, entry)];
@@ -205,13 +206,6 @@ function renderMakeRecipe(recipe, manifest) {
     return [`${recipe.target}:`, renderUndeclaredInputGuard(recipe.target, entry, manifest), ...renderBootstrapSelectorAdmission(entry),
       `\t$(Q)case "$\${CARTULARY_OUTPUT_MODE:-summary}" in quiet|summary|ci|verbose|debug) ;; *) echo 'help requires human output mode; use JSON=1 for JSON' >&2; exit 2;; esac`,
       `\t$(Q)$(if $(TASK_SURFACE_HELP_JSON_SELECTED),cat $(if $(TASK_SURFACE_HELP_ALL_SELECTED),tools/task_surface.help-all.generated.json,tools/task_surface.help.generated.json),printf '%s\\n' $(if $(TASK_SURFACE_HELP_ALL_SELECTED),$(TASK_SURFACE_HELP_ALL_LINES),$(TASK_SURFACE_HELP_LINES)))`,
-    ];
-  }
-  if (recipe.type === "ui_review") {
-    const inputs = (entry.input_contract?.inputs ?? []).map((input) => `${input.name}=$(call task_surface_shell_quote_raw,${input.name})`);
-    return [
-      `${recipe.target}:`,
-      `\t$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ${inputs.join(" ")} CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ${recipe.target}`,
     ];
   }
   // Cleanup takes exclusive admission itself.
@@ -244,14 +238,16 @@ function renderMakeRecipe(recipe, manifest) {
 // renderCommandEntryCall runs the command entry for recipe under admission.
 // Make adds the expanded value of each input the recipe's child receives that
 // does not travel literally; TASK_SURFACE_COMMAND_ENV carries the rest. A
-// target with a command-line selector, and one that asks for it, requires the
-// installed Node runtime; bootstrap and every other target install it.
+// target with a command-line selector, one that asks for it and the UI review
+// require the installed Node runtime; bootstrap and every other target install
+// it. The UI review reports an unavailable Node in its own result envelope.
 function renderCommandEntryCall(recipe, entry) {
   const inputs = new Map((entry?.input_contract?.inputs ?? []).map((input) => [input.name, input]));
   const expanded = entryInputNames(entry, recipe).filter((name) => !requiresLiteralMakeTransport(inputs.get(name)))
     .map((name) => `${name}="${makeVariableValue(name)}"`);
-  const installed = recipe.type !== "bootstrap" && (recipe.runtime_readiness === "installed_only" || entry.selection_binding);
-  return `\t$(Q)$(call RUN_COMMAND_ENTRY,${recipe.target},${installed ? "installed" : "install"},${expanded.join(" ")})`;
+  const review = recipe.type === "ui_review";
+  const installed = recipe.type !== "bootstrap" && (review || recipe.runtime_readiness === "installed_only" || entry.selection_binding);
+  return `\t$(Q)$(call RUN_COMMAND_ENTRY,${recipe.target},${installed ? "installed" : "install"},${expanded.join(" ")}${review ? ",ui_review" : ""})`;
 }
 
 // renderUndeclaredInputGuard refuses a command-line input target does not

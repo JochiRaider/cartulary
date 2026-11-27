@@ -3660,13 +3660,23 @@ target with the process tree and environments its recipe assembled:
   public input and sets the machine state, its forwarded inputs and its own
   variables, under the step runner when it reports a step;
 - a Node or owner tool runs through the Make tool launcher with its inputs and
-  every public input's origin;
+  every public input's origin, in a default-deny environment: the declared
+  harness names that unit environments receive, never an undeclared or public
+  name (amended 2026-11-27, P6-3);
+- a UI review command runs its client with a default-deny environment holding
+  its own inputs and their origins, the output mode, a caller's run identity
+  and the names review preparation forwards; the client validates its own
+  inputs and identity;
 - bootstrap runs the installation operation its command-line selector names,
   then its target summary.
 
-Help, the Markdown lint, the UI review launcher, the native run-status tool and
-cleanup stay Make recipes: none of them prepares Node. The Markdown lint and UI
-review recipes take shared workspace admission for their commands. Help prints
+Help, the Markdown lint, the native run-status tool and cleanup stay Make
+recipes: none of them prepares Node. The Markdown lint recipe takes shared
+workspace admission for its command. When the installed Node runtime is
+missing or not at the pinned version, the admitted launcher fails with
+configuration exit `2` in the target's result envelope, which the generated
+recipe passes: the UI review's command result, or the harness's `[FAIL]` line
+for every other target (amended 2026-11-27, P6-3). Help prints
 generated projections and takes none, and neither does the run-status
 observer. Cleanup takes exclusive admission itself.
 

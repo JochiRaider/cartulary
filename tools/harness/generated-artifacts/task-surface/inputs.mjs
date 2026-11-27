@@ -103,6 +103,7 @@ export function entryRecipeFamily(recipe, target) {
   if (recipe?.type === "step_command" && ["command", "run_step"].includes(recipe.mode) && target !== "lint-markdown") return "step";
   if (recipe?.type === "node_tool" || recipe?.type === "owner_command") return "tool";
   if (recipe?.type === "bootstrap") return "bootstrap";
+  if (recipe?.type === "ui_review") return "review";
   return null;
 }
 
@@ -114,6 +115,7 @@ export function entryInputNames(entry, recipe) {
     case "graph": return graphForwardedInputNames(entry);
     case "step": return stepForwardedInputNames(entry);
     case "tool": return toolInputNames(entry, recipe.tool_id);
+    case "review": return (entry?.input_contract?.inputs ?? []).map((input) => input.name);
     default: return [];
   }
 }

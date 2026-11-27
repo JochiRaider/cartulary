@@ -584,32 +584,25 @@ browser-design-review:
 	$(Q)$(call RUN_COMMAND_ENTRY,browser-design-review,install,REVIEW_PROFILE="$(REVIEW_PROFILE)")
 
 ui-review:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_MODE=$(call task_surface_shell_quote_raw,UI_MODE) REVIEW_PROFILE=$(call task_surface_shell_quote_raw,REVIEW_PROFILE) UI_ORIGIN=$(call task_surface_shell_quote_raw,UI_ORIGIN) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if \
-	  $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-review,installed,,ui_review)
 
 ui-review-status:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call \
-	  task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-status
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-review-status,installed,,ui_review)
 
 ui-browser:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_REQUEST=$(call task_surface_shell_quote_raw,UI_REQUEST) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
-	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-browser
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-browser,installed,,ui_review)
 
 ui-capture:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_REQUEST=$(call task_surface_shell_quote_raw,UI_REQUEST) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
-	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-capture
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-capture,installed,,ui_review)
 
 ui-analyze:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_REQUEST=$(call task_surface_shell_quote_raw,UI_REQUEST) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
-	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-analyze
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-analyze,installed,,ui_review)
 
 ui-review-report:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_BUNDLE=$(call task_surface_shell_quote_raw,UI_BUNDLE) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
-	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-report
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-review-report,installed,,ui_review)
 
 ui-review-stop:
-	$(Q)$(RUN_ADMITTED) env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call \
-	  task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-stop
+	$(Q)$(call RUN_COMMAND_ENTRY,ui-review-stop,installed,,ui_review)
 
 clean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
 clean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)

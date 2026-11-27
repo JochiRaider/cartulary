@@ -132,7 +132,7 @@ each.
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
 | G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Closed: every Go build Make runs is keyed by its import closure from `go list -deps` (14.25) |
 | G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Closed: the `mode_switch` role is gone; residual test isolation noted in 15.7 |
-| G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Open (15.2) |
+| G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Closed (15.8) |
 | G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Open (15.2) |
 | G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Open (15.2) |
 | G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Open (15.2) |
@@ -5018,7 +5018,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5577,3 +5577,52 @@ Section 9 applies.
       pair. Unit time is about 8% higher across the board, including Go test
       units that P6-2 does not touch. One run cannot attribute that; P6-6's
       paired runs will.
+
+### 15.8 UI Review Through the Entry (P6-3, done)
+
+- **A structured unavailable Node, for every target.** In `installed` mode
+  the admitted launcher checks that the runtime exists and runs the pinned
+  version. Otherwise it fails with configuration exit 2 in the envelope the
+  generated recipe passes:
+  - the UI review gets its `ui_review_command_result.v2` result;
+  - every other target gets
+    `[FAIL] target=… failure_class=config failure_reason=configuration_error
+    exit_code=2 subject=node condition=missing|incompatible`.
+
+  Before, the launcher checked only that `NODE_BIN` existed and printed plain
+  text.
+- **The UI review is an entry family.** Its seven commands run as one entry
+  call each. The entry runs the review client with a default-deny
+  environment: its own inputs and their origins, the output mode, a caller's
+  run identity and the names review preparation forwards. The client keeps
+  validating its own inputs and identity.
+  - **Deleted:** `ui-review/launch.sh`, `TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV`
+    and the renderer's review branch.
+  - **Help text.** Help, the Markdown lint, the run-status observer and
+    cleanup are the only Make recipes left.
+  - **Run identity.** A caller's run identity now reaches the client as the
+    entry received it. Before, the launcher passed it only when the user set
+    it. A Make-generated run ID is as unique as one the client generates.
+- **Default-deny tool environments.** Node and owner tools launched by the
+  entry receive only declared names, by the rule units follow: registered
+  harness names outside the product and test roles, and Make variables that
+  operation executions name. They also get the process and tool basics.
+  Before, a tool inherited the entry's whole environment minus the public
+  inputs, including `NODE_OPTIONS`, `DEBUG` and `OTEL_*`.
+- **Specification.** The entry paragraphs are amended: the review family,
+  default-deny tools and the structured Node failure.
+- **Tests.** The command-entry tests cover:
+  - default-deny tool and review environments;
+  - the review family;
+  - both envelopes for a missing and an incompatible Node;
+  - rejection of an undeclared envelope.
+
+  The task-surface report asserts the review's entry calls.
+- **Proof.**
+  - Generate, lint and source checks passed.
+  - **Segment (`p6-3`).** All 27 rows passed: five command-surface rows, all
+    14 `harness.generated_artifacts` rows and the eight UI-review rows. The
+    public-workflow test drives real `make ui-*` commands.
+  - `task-guide`, `target-plan`, `explain-run` and `test-run-status` ran
+    under the new environments.
+  - A real `make ui-review-status` returned its single structured result.

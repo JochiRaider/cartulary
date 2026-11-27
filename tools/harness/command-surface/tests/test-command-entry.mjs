@@ -3,10 +3,12 @@
 // ones, each with its origin; the resolved machine state; the launch
 // bindings; and the target's selection.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { bootstrapOperation, graphLaunch, publicRecipe, recipeProducers, stepInvocation, targetEnvironment, toolInvocation } from "../command-entry.mjs";
+import { bootstrapOperation, graphLaunch, publicRecipe, recipeProducers, reviewInvocation, stepInvocation, targetEnvironment, toolInvocation } from "../command-entry.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
@@ -103,11 +105,53 @@ test("a Node tool runs through the tool launcher with every public input's origi
   assert.equal(sources.get("CHECK"), "unset");
 });
 
+test("a Node tool's environment is default-deny: declared names pass, nothing else does", () => {
+  const env = { ...base, OWNER: "harness.command_surface", CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli",
+    NODE_OPTIONS: "--inspect", DEBUG: "*", OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector", UNDECLARED_SHELL_SETTING: "x",
+    CARTULARY_OUTPUT_MODE: "machine", TEST_SERVICES_BIN: "/toolbin/cartulary-test-services" };
+  const guide = toolInvocation("task-guide", env, { manifest, root });
+  for (const name of ["NODE_OPTIONS", "DEBUG", "OTEL_EXPORTER_OTLP_ENDPOINT", "UNDECLARED_SHELL_SETTING"]) assert.equal(Object.hasOwn(guide.env, name), false, name);
+  for (const name of ["PATH", "HOME", "CARTULARY_OUTPUT_MODE", "TEST_SERVICES_BIN"]) assert.equal(guide.env[name], env[name], name);
+});
+
+test("a UI review command runs its client through the entry with a default-deny environment", async () => {
+  const env = { ...base, UI_SESSION: "session-1", CARTULARY_MAKE_INPUT_SOURCES: "UI_SESSION=cli", CARTULARY_OUTPUT_MODE: "machine",
+    CARTULARY_TEST_RUN_ID: "run-1", NODE_OPTIONS: "--inspect", PWDEBUG: "1", OTEL_SERVICE_NAME: "x", OWNER: "not-an-input" };
+  const status = await reviewInvocation("ui-review-status", env, { manifest, root });
+  assert.equal(status.command, base.NODE_BIN);
+  assert.deepEqual(status.args, [path.join(root, "tools/harness/browser/ui-review/cli.mjs"), "ui-review-status"]);
+  for (const name of ["UI_SESSION", "CARTULARY_MAKE_INPUT_SOURCES", "CARTULARY_OUTPUT_MODE", "CARTULARY_TEST_RUN_ID", "PATH"]) assert.equal(status.env[name], env[name], name);
+  for (const name of ["NODE_OPTIONS", "PWDEBUG", "OTEL_SERVICE_NAME", "OWNER"]) assert.equal(Object.hasOwn(status.env, name), false, name);
+  await assert.rejects(() => reviewInvocation("task-guide", env, { manifest, root }), /not a UI review command/u);
+});
+
+test("an unavailable or incompatible Node is a structured configuration failure in the target's envelope", (t) => {
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-entry-node-"));
+  t.after(() => rmSync(scratch, { recursive: true, force: true }));
+  const wrong = path.join(scratch, "node");
+  writeFileSync(wrong, "#!/bin/sh\necho v0.0.1\n", { mode: 0o700 });
+  const launcher = path.join(root, "tools/harness/command-surface/command-entry.sh");
+  const entry = (nodeBin, ...args) => spawnSync("bash", [launcher, "installed", ...args], { env: { PATH: process.env.PATH, NODE_BIN: nodeBin }, encoding: "utf8" });
+  for (const [nodeBin, condition] of [[path.join(scratch, "absent"), "missing"], [wrong, "incompatible"]]) {
+    const review = entry(nodeBin, "ui-review-status", "ui_review");
+    assert.equal(review.status, 2);
+    const result = JSON.parse(review.stdout);
+    assert.equal(result.schema_id, "cartulary.ui_review_command_result.v2");
+    assert.equal(result.command_id, "cartulary.harness.command.ui_review_status.v1");
+    assert.deepEqual([result.failures[0].subject_id, result.failures[0].condition, result.failures[0].recovery_id], ["node", condition, "bootstrap_node"]);
+    const harness = entry(nodeBin, "task-guide");
+    assert.equal(harness.status, 2);
+    assert.equal(harness.stdout, "");
+    assert.match(harness.stderr, new RegExp(`^\\[FAIL\\] target=task-guide failure_class=config failure_reason=configuration_error exit_code=2 subject=node condition=${condition} `, "u"));
+  }
+  assert.equal(entry(wrong, "ui-review-status", "unknown").status, 2, "only the declared envelopes are accepted");
+});
+
 test("bootstrap selects only its command-line selector, and Make keeps its Node-free targets", () => {
   const variants = manifest.targets.find((entry) => entry.name === "bootstrap").selection_binding;
   assert.equal(bootstrapOperation("bootstrap", { PART: "node", CARTULARY_MAKE_INPUT_SOURCES: "PART=cli" }, { manifest }), variants.variants.node);
   assert.equal(bootstrapOperation("bootstrap", { PART: "node", CARTULARY_MAKE_INPUT_SOURCES: "PART=env" }, { manifest }), variants.default_selection);
-  for (const target of ["help", "lint-markdown", "test-run-status", "clean", "distclean", "ui-review"]) {
+  for (const target of ["help", "lint-markdown", "test-run-status", "clean", "distclean"]) {
     assert.throws(() => publicRecipe(manifest, target), /does not run through the command entry/u, target);
   }
 });
