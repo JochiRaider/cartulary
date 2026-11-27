@@ -198,7 +198,7 @@ export function toolInvocation(target, env, { manifest, root = repositoryRoot })
 export async function reviewInvocation(target, env, { manifest, root = repositoryRoot }) {
   const { entry, family } = publicRecipe(manifest, target);
   if (family !== "review") throw new HarnessConfigError(`${target} is not a UI review command`, { reason: "usage_error" });
-  const { reviewForwarded } = await import("../browser/review-recipes.mjs");
+  const { reviewForwarded } = await import("../browser/index.mjs");
   const inputs = (entry.input_contract?.inputs ?? []).map((input) => input.name);
   const pass = [...inputs, ...reviewForwarded(root), "CARTULARY_MAKE_INPUT_SOURCES", "CARTULARY_OUTPUT_MODE", "CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"];
   return { command: env.NODE_BIN || process.execPath, args: [path.join(root, "tools/harness/browser/ui-review/cli.mjs"), target], env: childEnvironment(env, { pass }) };

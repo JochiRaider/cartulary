@@ -8,3 +8,5 @@ export { validateFrontendVisualGoldenManifest } from "./frontend-visual-golden-m
 export { createBrowserFixtureProcess, createGoBrowserFixtureProcess, fixtureLifecycleAttachment } from "./fixture-process.mjs";
 
 export { loadVisualRendererProfile, recoverVisualRenderer, verifyRendererImage } from "./visual-renderer-lease.mjs";
+
+export { reviewForwarded } from "./review-recipes.mjs";
