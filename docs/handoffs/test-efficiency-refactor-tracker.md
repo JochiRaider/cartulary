@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-28. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), the rest of P7-5 is replanned (16.13), P7-5b to P7-5d are done (16.14 to 16.18), P7-5e closed without a change, P7-5f kept four browser lanes and three-token browser claims, and P7-5g closed with G70 (16.19); P7-6 remains. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-28. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), the rest of P7-5 is replanned (16.13), P7-5b to P7-5d are done (16.14 to 16.18), P7-5e closed without a change, P7-5f kept four browser lanes and three-token browser claims, P7-5g closed with G70 (16.19), and P7-6 validated the phase and fixed G71, G72 and G74 (16.20). Phase 7 is complete and handed off. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -60,26 +60,25 @@ Decision rules applied to every gap:
 5. Durability, isolation scope and secret-scan coverage are not traded for speed.
 
 Targets are hypotheses to confirm against measurements, not commitments. "Current"
-was refreshed on 2026-11-27 from the Phase 6 validation (15.11): the paired
-`check` (`p6-5-check01`, `p6-6-check02`), the paired `ci` at `3f9139070`
-(`p6-6-ci03`, `p6-6-ci04`), `release-check` at `2947948a4`
-(`p6-6-release02`) and the failed runs before them. Rows marked "not
-re-measured" keep their earlier values. Single runs vary by about
-±30 s for `check` and ±60 s for `ci`; compare treatments with two repetitions
-each.
+was refreshed on 2026-11-28 from the Phase 7 validation (16.20): the paired
+`check` (`p7-6-check01`, `-check02`), the paired `ci` (`p7-6-ci01`, `-ci02`)
+and `release-check` (`p7-6-release01`) at `609bd21ac`, and the G63 runs in
+normal cache mode. Rows marked "not re-measured" keep their earlier values.
+Single runs vary by about ±30 s for `check` and ±60 s for `ci`; compare
+treatments with two repetitions each.
 
-| Metric | Current (2026-11-27, Phase 6) | Target |
+| Metric | Current (2026-11-28, Phase 7) | Target |
 | --- | ---: | ---: |
-| `check` graph wall, all units run | 505 s and 493 s, 1,899 rows (`p6-5-check01`, `p6-6-check02`); 520 s at P4-7 (`p48`); 579 s at P6-2 | ≤ 500 s (met by one of the pair) |
-| `check` graph wall after a localized product change | Not re-measured. On 2026-11-25 a localized change ran as long as a full run | ≤ 300 s for the median product change (G35) |
-| `ci` graph wall | 1,325 s and 1,310 s, 2,654 rows (`p6-6-ci03`, `p6-6-ci04`); 1,328 s and 1,361 s at P4-7 | ≤ 1,450 s after the component work (met); ≤ 1,200 s after G31 |
-| `ci` pass rate | 2 of 4 in P6-6. Both failures were deterministic defects introduced in Phase 6 or a rare product flake, each fixed and proven in isolation (15.11) | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence (met) |
-| `check` pass rate | 2 of 2 in P6-6 | No load-dependent failure (met) |
-| `release-check` | 422 s, all 7 release rows and the SeaweedFS gate (`p6-6-release02`); the first run failed on the gate (15.11) | Met |
-| Cached one-row slice, outer | 0.76 s (1.79 s before P6-5, 15.10) | ≤ 0.8 s (met) |
-| Post-graph overhead per invocation | `check` 11–12 s, `ci` 27–30 s (outer minus graph) | ≤ 15 s (met for `check`) |
-| Successful run root | 319–323 MB `check`, 781–798 MB `ci`, 8 MB `release-check`; the event log is 258–261 MB and 513–528 MB of it | ≤ 150 MB `check` |
-| Harness environment registry | 251 names (449 at the Phase 6 baseline, 15.9) | Only crossing names (met) |
+| `check` graph wall, all units run | 427 s and 431 s, 1,899 rows (`p7-6-check01`, `-check02`); 505 s and 493 s in Phase 6 | ≤ 500 s (met) |
+| `check` graph wall after a localized product change | 391 s after one comment line in `assessments` (`p7-6-g63-change`), which invalidates 137 of 304 cacheable Go units; 63 s unchanged (`p7-6-g63-unchanged`) | ≤ 300 s for the median product change (G35; not met) |
+| `ci` graph wall | 1,194 s and 1,190 s, 2,654 rows (`p7-6-ci01`, `-ci02`); 1,325 s and 1,310 s in Phase 6 | ≤ 1,450 s after the component work (met); ≤ 1,200 s after G31 (met) |
+| `ci` pass rate | 2 of 2 in P7-6 | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence (met) |
+| `check` pass rate | 2 of 2 in P7-6. The G63 warm-up failed once on a reader race, fixed as G74 (16.20) | No load-dependent failure (met after G74) |
+| `release-check` | 421 s, all 7 release rows and the SeaweedFS gate (`p7-6-release01`) | Met |
+| Cached one-row slice, outer | Not re-measured; 0.76 s at P6-5 (15.10) | ≤ 0.8 s (met) |
+| Post-graph overhead per invocation | `check` 7–8 s, `ci` 9–10 s (outer minus graph) | ≤ 15 s (met) |
+| Successful run root | 64 MB `check`, 93–94 MB `ci`, 8 MB `release-check`; event logs 4 MB and 6 MB | ≤ 150 MB `check`, ≤ 200 MB `ci`; event log ≤ 10 MB and ≤ 20 MB (D38; met) |
+| Harness environment registry | Not re-measured; 251 names at P6-4 (15.9) | Only crossing names (met) |
 | Temporary directories leaked per clean run | Not re-measured; 0 at P4-7 | 0 |
 | Retained results | Not re-measured; unbounded on 2026-11-25 | Bounded by an owner-set budget |
 
@@ -1413,6 +1412,9 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | G73 | Spec capacity rows repaired: the `postgres_generation` resource and `postgres_generations` capacity, registry v10, snapshot and override v2, eight PostgreSQL lanes, REQ-803's resident claim; P7-5e closed without a change (G68, 16.14) | `make lint-markdown` | Documentation only |
 | 2026-11-28 | P7-5f / G61, G70 | Five browser lanes only, at the owner's direction; browser container I/O and host I/O pressure sampled | `p7-5f-lanes5-ci01`, `-ci02` against `p7-5c-ci05` | `ci` 1,189 and 1,185 s against 1,187 s: CPU token claims bound it; four lanes kept (D52); G70 and P7-5g closed; two-token browser claim proposed (D53, 16.19) |
 | 2026-11-28 | P7-5f / D53 | Browser cohorts at two CPU tokens, measured in an uncommitted tree and reverted | `p7-5f-tok2-l4-ci01`, `p7-5f-tok2-l5-ci01`, four segments | `ci` 1,180 s at four lanes and 1,173 s at five, which fails the gate (cohort time +22%, one test race exposed); three tokens stay (16.19) |
+| 2026-11-28 | P7-6 / G71, G72 | Host lease spans the unit's lifetime, released by the scheduler with the terminal event; Go and Node project physical claims from the host grant; the capacity override is no longer forwarded to units | `g71-*` (ten segments), `g71-browser-row` (observability check) | Pass; committed `609bd21ac` (16.20) |
+| 2026-11-28 | P7-6 validation | Paired `check`, paired `ci`, `release-check`, G63 in normal cache mode | `p7-6-check01`, `-check02`, `p7-6-ci01`, `-ci02`, `p7-6-release01`, `p7-6-g63-warm`, `-unchanged`, `-change` | `check` 427 and 431 s; `ci` 1,194 and 1,190 s; `release-check` 421 s; G63 63 s unchanged and 391 s after a one-line change; the warm-up failed on G74 (16.20) |
+| 2026-11-28 | P7-6 / G74 | Service journals read as they stood when opened | `g74-*` (four segments), `g74-journals-off` | Pass; committed `654d908f5` (16.20) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6749,7 +6751,7 @@ P7-5b to P7-5d are done (16.14 to 16.18). P7-5e closed without a change:
 P7-5b measured that the disk does not limit the object store (G68, 16.14),
 and P7-5d's ten object-store lanes halved its blocked wait time without
 moving `ci`. P7-5f kept four browser lanes, and P7-5g closed with G70
-(16.19).
+(16.19). P7-6 is done (16.20).
 
 #### Findings
 
@@ -7333,8 +7335,8 @@ slightly overstates physical holds.
 
 | Gap | Problem | Areas | Severity |
 | --- | --- | --- | --- |
-| G71 | The run summary's resource pressure holds physical claims until the terminal event, after the host lease is released, so peak use reads above capacity and saturation is overstated | Specification, implementation, tests | Medium |
-| G72 | A nested Make in a scratch copy inherits the caller's capacity override, so a relative override fails `assurance_toolchain_pins` | Implementation, tests | Low |
+| G71 | The run summary's resource pressure holds physical claims until the terminal event, after the host lease is released, so peak use reads above capacity and saturation is overstated | Specification, implementation, tests | Medium (fixed in `609bd21ac`, 16.20) |
+| G72 | A nested Make in a scratch copy inherits the caller's capacity override, so a relative override fails `assurance_toolchain_pins` | Implementation, tests | Low (fixed in `609bd21ac`, 16.20) |
 | G73 | The spec's capacity rows are stale since P4-5: no `postgres_generation` resource or `postgres_generations` row, the registry named v8 (it is v10), the snapshot and override schemas named v1 (they are v2), and sixteen PostgreSQL lanes (the default is eight) | Specification | Low (repaired 2026-11-28) |
 
 #### Decisions
@@ -7451,3 +7453,87 @@ the change was then reverted.
   A material gain needs more than one of them at once, and the owner has
   declined the memory that ten generations take (D50).
 
+
+### 16.20 Validation and Handoff (P7-6, done)
+
+P7-6 validated Phase 7 under the Section 9 protocol (`CARTULARY_OUTPUT_MODE=ci`,
+basic diagnostics, cache off, sequential) at `609bd21ac`, after fixing G71
+and G72 at the owner's direction.
+
+- **G71 and G72 (`609bd21ac`).**
+  - **G71.** A unit's host lease now spans its admitted lifetime. The worker
+    settles the work's physical state (renderer slot, browser stack) before
+    evidence write, and the scheduler returns the ledger reservation in the
+    step that records the terminal event, so no admission falls between
+    them; a ledger release failure fails the run. Go and Node project a
+    physical claim from the host grant, which follows admission only when a
+    worker waited in host admission. P7-5c's `check` summary reported CPU 27
+    of 19 tokens, PostgreSQL 11 of 8 and heavy lanes 5 of 4; every P7-6 peak
+    is at most its capacity. Review also found a leak: a quiet unit whose
+    pause failed never released its granted lease. It now does.
+  - **G72.** Preparation resolves the capacity override once and no longer
+    forwards it to units; plan validation rejects a plan that forwards it.
+    The toolchain-pins row passes with a relative override
+    (`g71-pins-override`).
+  - **Proof.** Ten segments (`g71-*`): generated, catalog and surface
+    checks; Go and type lint; the runtime, scheduler and planner rows; the
+    G72 repro; browser fixture lifecycles; a real browser row; and
+    `harness-contract SUITE=contract`. `harness-observability-check` agrees
+    with the browser row's pressure. Reverting either fix fails its new test.
+- **Paired `check`.** `p7-6-check01` and `-check02` passed all 1,899 rows in
+  427 s and 431 s graphs (434 s and 439 s outer).
+- **Paired `ci`.** `p7-6-ci01` and `-ci02` passed all 2,654 rows in 1,194 s
+  and 1,190 s graphs (1,204 s and 1,199 s outer).
+- **`release-check`.** `p7-6-release01` passed all 7 release rows and the
+  SeaweedFS gate in a 421 s graph.
+- **G63, the everyday metric** (normal cache mode, after the runs above).
+  - The warm-up, `p7-6-g63-warm`, failed one unit,
+    `frontend_import_boundary_check`, on a reader race (G74, below).
+  - Unchanged (`p7-6-g63-unchanged`): 63 s graph, 70 s outer. 317 units hit
+    the cache; the 54 uncacheable units and the unit the warm-up failed ran,
+    465 unit-seconds.
+  - One comment line added to `internal/modules/assessments/create_service.go`
+    (`p7-6-g63-change`): 391 s graph, 396 s outer, against the 300 s
+    target. 137 of 304 cacheable Go units missed, because cache keys follow
+    import closures and much of the backend imports `assessments`. The
+    probe was reverted.
+- **G74 (`654d908f5`).** The failing unit's own check passed. Its target
+  summary then read every service journal in the run through the local-file
+  guard, which rejected a journal another unit's fixture was appending to.
+  Journals are now read as they stood when opened: later appends are
+  accepted, while truncation, replacement and identity changes still fail,
+  and an incomplete trailing record is dropped as before. A new test reads
+  while a separate process appends; the old read fails it every time. The
+  owning row and an uncached PostgreSQL slice pass (`g74-*`). This was its
+  first occurrence in any retained run; full runs were not repeated for it.
+- **Section 3** is refreshed from these runs.
+- **Gaps.** Phase 7's gaps are closed:
+  - Changed: G56 to G60, G62, G64, G65 and G67 (16.7 to 16.16), and G71,
+    G72 and G74 here.
+  - Measured, defaults kept: G61 (four browser lanes, D52) and G66 (eight
+    generations, D50).
+  - Closed without a change: G68 and G69 (16.14) and G70 (16.19).
+  - G63 is measured above; its target is not met.
+
+| Gap | Problem | Areas | Severity |
+| --- | --- | --- | --- |
+| G74 | Target summaries read service journals through a guard that rejects any concurrent append, so a passing unit can fail while another unit's fixture writes | Specification, implementation, tests | Medium (fixed in `654d908f5`) |
+
+#### Handoff
+
+- **Where the commands stand.** `check` runs in about 430 s against its
+  500 s target (about 500 s in Phase 6). `ci` runs in about 1,190 s and
+  meets the 1,200 s G31 target for the first time (1,310 to 1,325 s in
+  Phase 6). Run roots are 64 MB for `check` and 93 to 94 MB for `ci`, with
+  4 MB and 6 MB event logs, all inside D38's targets.
+- **What bounds `ci`.** Every configuration measured lands between 1,173 s
+  and 1,194 s (16.19). CPU tokens, browser lanes and PostgreSQL generations
+  hand the bound to one another, so a gain needs more than one raised at
+  once, and the owner declined the memory that ten generations take (D50).
+- **What bounds the everyday `check`.** Cache-key breadth, not capacity: a
+  comment in one module re-runs 45% of the cacheable Go units. Narrower keys
+  are the next lever for G35; nothing is proposed or decided yet. The 54
+  uncacheable units set the 63 s floor of an unchanged run.
+- **Open follow-up.** The browser test race at
+  `apps/web/e2e/authoring-candidates.spec.ts:776` (16.19) is offered as a
+  separate task.
