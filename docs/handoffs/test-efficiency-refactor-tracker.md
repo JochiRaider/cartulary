@@ -1405,6 +1405,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-4 / G60, G64 | Look-ahead reservation over the whole need chain; estimates refreshed from current runs; pool-aware rank (D42); the entry producer's records declared | `p7-4-check01` to `-check03`, `p7-4-ci01`, `-ci02` (cancelled), `-ci03`, segments | `check` 477 s graph (483 s outer); `ci` 1,219 s graph, first cohorts at 5.8 s (16.11) |
 | 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
 | 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Approved as recommended (16.13) |
+| 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6978,8 +6979,51 @@ the same day. It replaces the rest of P7-5 (16.3) and keeps G61 at its end.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D43 | Generation memory charge | Size by resident profile from measured peaks with a 1.5 margin, and charge exactly that size; no overcommit. Rejected: expected-size charges under one 4 GiB cap (admission stops bounding use), and per-unit observed sizes (more exact, but a new observation channel; it remains a later option). **Approved 2026-11-28** |
+| D43 | Generation memory charge | Size by resident profile from measured peaks with a 1.5 margin, and charge exactly that size; no overcommit. Rejected: expected-size charges under one 4 GiB cap (admission stops bounding use), and per-unit observed sizes (more exact, but a new observation channel; it remains a later option). **Approved 2026-11-28**. **Revised by the owner the same day after P7-5b (16.14):** profiles for browser-stack, shared and measurement generations, and per-row observed footprints for unit generations; the charge still equals the tmpfs size. |
 | D44 | Generation count | Measure 8, 10 and 12 after D43 and adopt through G66's gate; keep 8 until it passes. **Approved 2026-11-28** |
 | D45 | Service CPU | Charge it only if G67's measurement shows the margin exceeded. **Approved 2026-11-28** |
 | D46 | Object store | Move broker stores to tmpfs through G68's gate; restarting suites and SeaweedFS gate instances stay on disk. **Approved 2026-11-28** |
 | D47 | Direct owners and browser data | Measure first; act only at 5% or more of a command's wall time. **Approved 2026-11-28** |
+
+### 16.14 Measurements (P7-5b, done)
+
+`p7-5b-check01` (429 s graph) and `p7-5b-ci01` (1,175 s, passing, under
+1,200 s) ran with three samplers. One recorded each generation's tmpfs use
+every 5 s by suite, joined to its allocation through the suite's
+`service-scope.json`. One recorded each object store's data size, and one
+recorded each container's cgroup CPU and writes (`check` only; the `ci`
+sampler did not start).
+
+- **Generation peaks.**
+
+  | Profile | Count | Largest | p95 | Median |
+  | --- | ---: | ---: | ---: | ---: |
+  | Unit generation, heavy | 13 | 2.2 GB | 1.9 GB | 1.1 GB |
+  | Unit generation, standard | 58 to 66 | 2.8 GB | 1.0 to 1.1 GB | 88 MB |
+  | Shared generation | 1 | 0.8 GB | — | — |
+  | Browser-stack generations (`ci`) | 27 | 264 MB | 158 MB | 105 MB |
+
+  - The largest generations are long packed Go units that run many
+    integration tests in one cluster: `module.auth` at 2.8 GB and reference
+    data at 2.2 GB. Size follows a unit's work, not its heavy or standard
+    profile.
+  - Each unit's peak is stable: 2,753 against 2,814 MB, and 2,136 against
+    2,198 MB, between the two runs. So D43's profiles cannot shrink unit
+    generations, and per-unit observation can.
+  - Under per-unit sizing (1.5 times the peak in 512 MB steps, 768 MB to
+    4,352 MB), the median unit claim falls from 4,352 MB to 768 MB. The eight
+    largest together claim 29.2 GB instead of 34.8. Browser-stack
+    generations fall to 768 MB and the shared one to 1,792 MB.
+- **Service CPU at eight generations.** PostgreSQL servers average 1.9
+  cores (p95 3.4, maximum 3.8), and the object store 0.2. Together they fit
+  the five-core margin, so G67 needs only re-measuring at higher counts.
+- **Object store.** It writes 0.5 GB per `check` and its data peaks at
+  147 MB, so the disk does not limit it. Its pool's work is 2,655
+  unit-seconds in `check` and 7,518 in `ci` (a 940 s bound over eight
+  lanes), and that time is spent elsewhere. G68's remedy would not pay; it
+  closes without a change, under D46's gate.
+- **Direct owners.** No `check` units; two `ci` units, 14 unit-seconds. G69
+  closes without a change (D47).
+- **Browser data.** The `ci` cgroup sampler did not start, so G70 is
+  measured in P7-5f's `ci` runs instead.
+- **Memory.** At least 18 GB available, no OOM kills.
