@@ -272,7 +272,10 @@ test("binding owners write their names: set browser fields, every resource list 
   assert.deepEqual(resourceDependenciesEnvironment([]), { [name("HARNESS_RESOURCE_DEPENDENCIES")]: "[]" });
   assert.deepEqual(resourceDependenciesEnvironment(["a", "b"]), { [name("HARNESS_RESOURCE_DEPENDENCIES")]: '["a","b"]' });
   assert.deepEqual(postgresAllocationEnvironment({ isolation: "shared", ref: "session:a" }), {
-    [name("PGTEST_ISOLATION")]: "shared", [name("PGTEST_ALLOCATION_REF")]: "session:a",
+    [name("PGTEST_ISOLATION")]: "shared", [name("PGTEST_ALLOCATION_REF")]: "session:a", [name("PGTEST_DATA_BYTES")]: "",
+  });
+  assert.deepEqual(postgresAllocationEnvironment({ isolation: "exclusive", ref: "postgres:unit:a", dataBytes: 536870912 }), {
+    [name("PGTEST_ISOLATION")]: "exclusive", [name("PGTEST_ALLOCATION_REF")]: "postgres:unit:a", [name("PGTEST_DATA_BYTES")]: "536870912",
   });
 });
 

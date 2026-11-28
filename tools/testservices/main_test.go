@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -2505,10 +2506,12 @@ func TestStartSuiteHonorsSelectedServices(t *testing.T) {
 	}
 }
 
-// A broker generation keeps its data in memory, so the topology's PostgreSQL
-// resident claim must cover that capacity on top of the server's own budget,
-// and it holds no disk volume (TH-HARNESS-REQ-804).
-func TestPostgresResidentClaimCoversMemoryData(t *testing.T) {
+// A broker generation keeps its data in memory and takes the data capacity its
+// resident claim affords beyond the server budget, so every PostgreSQL profile
+// of the topology covers that budget and holds no disk volume. A generation
+// whose allocation names no capacity (a persistent session) takes the default,
+// which the unit-generation claim covers (TH-HARNESS-REQ-804).
+func TestPostgresResidentClaimsCoverMemoryData(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "execution_topology_manifest.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -2519,11 +2522,50 @@ func TestPostgresResidentClaimCoversMemoryData(t *testing.T) {
 	if err := json.Unmarshal(raw, &topology); err != nil {
 		t.Fatal(err)
 	}
-	claim := topology.Claims["postgres"]
-	if claim["memory_mb"]<<20 < pgtest.GenerationMemoryDataBytes+256<<20 {
-		t.Fatalf("postgres resident claims %d MB, below its %d MB memory-backed data and server budget", claim["memory_mb"], (pgtest.GenerationMemoryDataBytes>>20)+256)
+	unit := topology.Claims["postgres"]
+	if pgtest.GenerationDataBytes(unit["memory_mb"]) < pgtest.GenerationMemoryDataBytes {
+		t.Fatalf("postgres resident claims %d MB, below the %d MB default data capacity and server budget", unit["memory_mb"], (pgtest.GenerationMemoryDataBytes+pgtest.GenerationServerBytes)>>20)
 	}
-	if _, ok := claim["volume"]; ok {
-		t.Fatal("a memory-backed generation still claims a disk volume")
+	for _, profile := range []string{"postgres", "postgres_shared", "postgres_browser_stack", "postgres_measurement"} {
+		claim := topology.Claims[profile]
+		if pgtest.GenerationDataBytes(claim["memory_mb"]) <= 0 {
+			t.Fatalf("%s claims %d MB, no more than the server budget", profile, claim["memory_mb"])
+		}
+		if _, ok := claim["volume"]; ok {
+			t.Fatalf("memory-backed %s still claims a disk volume", profile)
+		}
+		for resource, quantity := range unit {
+			if resource != "memory_mb" && claim[resource] != quantity {
+				t.Fatalf("%s claims %s %d, unlike a unit generation", profile, resource, claim[resource])
+			}
+		}
+	}
+}
+
+// A generation's footprint is observed before its container is removed, under
+// the capacity its allocation named; a failed observation records nothing and
+// never fails cleanup.
+func TestRecordPostgresFootprintObservesBeforeRemoval(t *testing.T) {
+	results := t.TempDir()
+	env := map[string]string{"CARTULARY_TEST_RESULTS_DIR": results, "CARTULARY_TEST_RUN_ID": "footprint-run", suiteservices.SuiteIDEnv: "suite-a"}
+	maps.Copy(env, suiteservices.PostgresAllocation{Isolation: "exclusive", Ref: "postgres:unit:go:a", DataBytes: 512 << 20}.Environment())
+	file := filepath.Join(results, "footprint-run", "_shared", "test-services", "suite-a", suiteservices.PostgresFootprintFile)
+	recordPostgresFootprint(context.Background(), env, "container", func(context.Context, string) (int64, error) { return 0, errors.New("exited") })
+	if _, err := os.Stat(file); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a failed observation recorded a footprint: %v", err)
+	}
+	var observed string
+	recordPostgresFootprint(context.Background(), env, "container", func(_ context.Context, id string) (int64, error) { observed = id; return 300 << 20, nil })
+	data, err := os.ReadFile(file)
+	if err != nil || observed != "container" {
+		t.Fatalf("observed %q: %v", observed, err)
+	}
+	var footprint suiteservices.PostgresFootprint
+	if err := json.Unmarshal(data, &footprint); err != nil || footprint.DataCapacityBytes != 512<<20 || footprint.MemoryPeakBytes != 300<<20 {
+		t.Fatalf("footprint %+v: %v", footprint, err)
+	}
+	delete(env, suiteservices.PGDataBytesEnv)
+	if got, err := generationDataBytes(env); err != nil || got != pgtest.GenerationMemoryDataBytes {
+		t.Fatalf("an unnamed capacity took %d: %v", got, err)
 	}
 }

@@ -162,8 +162,8 @@ func run() int {
 			fmt.Fprintf(os.Stderr, "%v\nfailure_class=config failure_reason=configuration_error\n", err)
 			return 2
 		}
-		fmt.Printf("[ESTIMATES] run_id=%s rows=%d operations=%d pruned_rows=%d pruned_operations=%d file=tools/harness_work_estimates.json\n",
-			report.RunID, report.Rows, report.Operations, report.PrunedRows, report.PrunedOperation)
+		fmt.Printf("[ESTIMATES] run_id=%s rows=%d operations=%d generations=%d pruned_rows=%d pruned_operations=%d file=tools/harness_work_estimates.json\n",
+			report.RunID, report.Rows, report.Operations, report.Generations, report.PrunedRows, report.PrunedOperation)
 		return 0
 	case "review":
 		return harnessreview.Main(os.Args[2:], os.Stdin, os.Stdout)

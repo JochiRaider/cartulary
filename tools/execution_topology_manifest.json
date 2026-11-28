@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v16",
+  "schema_id": "cartulary.execution_topology.v17",
   "runtime_profiles": [
     {
       "id": "default",
@@ -616,6 +616,24 @@
   "task_surface_owner": "tools/task_surface_owner.json",
   "physical_resource_claims": {
     "postgres": {
+      "memory_mb": 4352,
+      "port_lane": 1,
+      "postgres_generation": 1,
+      "process": 8
+    },
+    "postgres_shared": {
+      "memory_mb": 1792,
+      "port_lane": 1,
+      "postgres_generation": 1,
+      "process": 8
+    },
+    "postgres_browser_stack": {
+      "memory_mb": 768,
+      "port_lane": 1,
+      "postgres_generation": 1,
+      "process": 8
+    },
+    "postgres_measurement": {
       "memory_mb": 4352,
       "port_lane": 1,
       "postgres_generation": 1,

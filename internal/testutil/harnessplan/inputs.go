@@ -84,7 +84,7 @@ func Load(root string) (*Inputs, error) {
 	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v14", &inputs.Owner); err != nil {
 		return nil, err
 	}
-	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v16", &inputs.Topology); err != nil {
+	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v17", &inputs.Topology); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v10", &inputs.Registry); err != nil {

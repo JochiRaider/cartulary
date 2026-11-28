@@ -10,9 +10,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 	"github.com/jackc/pgx/v5/pgconn"
 	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -420,8 +422,57 @@ type StartOptions struct {
 }
 
 // GenerationMemoryDataBytes is the memory-backed data capacity of a broker
-// generation. The topology's PostgreSQL resident claim covers it.
+// generation whose allocation names none, such as a persistent session's. The
+// topology's PostgreSQL resident claim covers it (TH-HARNESS-REQ-804).
 const GenerationMemoryDataBytes = 4 << 30
+
+// GenerationServerBytes is the server memory a broker generation's resident
+// claim reserves beyond its memory-backed data.
+const GenerationServerBytes = 256 << 20
+
+// GenerationDataBytes is the memory-backed data capacity that a generation
+// resident claim of memoryMB affords: the claim less the server budget, so a
+// generation can never use more memory than admission charged for it.
+func GenerationDataBytes(memoryMB int64) int64 {
+	return max(0, memoryMB<<20-GenerationServerBytes)
+}
+
+// memoryPeakFile is the container's own cgroup v2 high-water mark, which
+// charges the memory-backed data directory together with server memory.
+const memoryPeakFile = "/sys/fs/cgroup/memory.peak"
+
+// ContainerMemoryPeakBytes reads a generation container's peak memory use. Its
+// owner observes it before removal; the cgroup ends with the container.
+func ContainerMemoryPeakBytes(ctx context.Context, containerID string) (int64, error) {
+	cli, err := testcontainers.NewDockerClientWithOpts(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("read postgres memory peak: %w", err)
+	}
+	defer cli.Close()
+	process, err := cli.ExecCreate(ctx, containerID, client.ExecCreateOptions{Cmd: []string{"cat", memoryPeakFile}, AttachStdout: true})
+	if err != nil {
+		return 0, fmt.Errorf("read postgres memory peak: %w", err)
+	}
+	stream, err := cli.ExecAttach(ctx, process.ID, client.ExecAttachOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("read postgres memory peak: %w", err)
+	}
+	defer stream.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := stream.Conn.SetReadDeadline(deadline); err != nil {
+			return 0, fmt.Errorf("read postgres memory peak: %w", err)
+		}
+	}
+	data, truncated, err := readPostgresLogFrames(stream.Reader)
+	if err != nil || truncated {
+		return 0, fmt.Errorf("read postgres memory peak: unreadable output")
+	}
+	peak, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+	if err != nil || peak <= 0 {
+		return 0, fmt.Errorf("read postgres memory peak: value %q", strings.TrimSpace(string(data)))
+	}
+	return peak, nil
+}
 
 type postgresReadinessError struct {
 	Attempts        int

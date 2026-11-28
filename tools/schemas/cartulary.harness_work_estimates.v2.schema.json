@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_estimates.v1",
+  "$id": "cartulary.harness_work_estimates.v2",
   "description": "Observed work estimates: each observed catalog row's and operation's most recent observations, written by estimate-refresh from passing retained runs (TH-HARNESS-REQ-865). A planning estimate is the median of its observations.",
   "type": "object",
   "additionalProperties": false,
@@ -8,11 +8,12 @@
     "schema_id",
     "runs",
     "rows",
-    "operations"
+    "operations",
+    "generations"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_estimates.v1"
+      "const": "cartulary.harness_work_estimates.v2"
     },
     "runs": {
       "description": "The folded runs, oldest first; a run is folded once.",
@@ -49,6 +50,10 @@
     },
     "operations": {
       "$ref": "#/$defs/observations"
+    },
+    "generations": {
+      "$ref": "#/$defs/observations",
+      "description": "Per row, the peak memory in MiB of the unit generations that ran it; unit generation claims are sized from these (TH-HARNESS-REQ-865)."
     }
   },
   "$defs": {

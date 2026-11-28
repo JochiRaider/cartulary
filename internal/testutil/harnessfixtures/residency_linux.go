@@ -75,6 +75,20 @@ func (r *residency) ensure(key string, claims map[string]int64) (*residentRecord
 	r.allocations[key] = record
 	return record, nil
 }
+
+// memoryMB is the memory the resident allocation for key claims, or zero when
+// no resident claims it.
+func (r *residency) memoryMB(key string) int64 {
+	if r == nil {
+		return 0
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if record := r.allocations[key]; record != nil {
+		return int64(record.Allocation.Claims["memory_mb"])
+	}
+	return 0
+}
 func (r *residency) reference(key string) []string {
 	if r == nil {
 		return nil

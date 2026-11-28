@@ -17,7 +17,7 @@ export function registerBoundariesTests() {
   test("current_owner_and_topology_identity: current task-surface and topology identities are exact", async () => {
     const context = createContractTestContext(root);
     assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v4");
-    assert.equal(context.topology.schema_id, "cartulary.execution_topology.v16");
+    assert.equal(context.topology.schema_id, "cartulary.execution_topology.v17");
   });
   test("current_target_roster: current target roster and public surface are exact", async () => {
     const context = createContractTestContext(root);

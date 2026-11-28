@@ -400,7 +400,7 @@ func RefreshSummary(env map[string]string) error {
 
 func writeFileAtomically(destination string, payload []byte, mode os.FileMode) (returnErr error) {
 	directory := filepath.Dir(destination)
-	temporary, err := os.CreateTemp(directory, ".service-scope.*.tmp")
+	temporary, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".*.tmp")
 	if err != nil {
 		return err
 	}

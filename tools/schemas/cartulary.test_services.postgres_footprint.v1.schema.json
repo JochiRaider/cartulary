@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.postgres_footprint.v1",
+  "title": "PostgreSQL generation footprint",
+  "description": "The peak memory of one broker PostgreSQL generation's container, data directory included, recorded when the generation stops. estimate-refresh folds unit generations' footprints into the planning estimates (TH-HARNESS-REQ-865).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "allocation_ref",
+    "data_capacity_bytes",
+    "memory_peak_bytes"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test_services.postgres_footprint.v1"
+    },
+    "allocation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^postgres:[A-Za-z0-9_.:/-]+$"
+    },
+    "data_capacity_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "memory_peak_bytes": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

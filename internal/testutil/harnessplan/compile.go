@@ -413,7 +413,7 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 	if lease == "" {
 		lease = "none"
 	}
-	residents, cluster := c.residents(unitID, lease, policy.ServiceDependencies, policy.PostgresIsolation)
+	residents, cluster := c.residents(unitID, lease, policy.ServiceDependencies, policy.PostgresIsolation, nil)
 	unit := &Unit{
 		ID: unitID, OwnerID: "harness.command_surface", Kind: operation.Kind, Needs: needs, Claims: claims,
 		Residents: residents, FixtureLease: lease,
@@ -729,7 +729,7 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 	}
 	claims["cpu"] = min(claims["cpu"], c.options.CPUTokens)
 	environment := fixtureEnvironment(contract.FixtureCapability, contract.ServiceDependencies)
-	residents, cluster := c.residents(id, contract.FixtureCapability, contract.ServiceDependencies, contract.PostgresIsolation)
+	residents, cluster := c.residents(id, contract.FixtureCapability, contract.ServiceDependencies, contract.PostgresIsolation, rowIDs)
 	if cluster != "" {
 		environment[clusterKeyEnvironment] = cluster
 	}
@@ -848,7 +848,9 @@ func (c *compiler) claims(profileID string, services []string) (map[string]int64
 // shared one, and the shared object store. Shared allocations of an attached
 // service session belong to that session. A unit without a fixture lease
 // manages or attaches to its services itself and has no residents.
-func (c *compiler) residents(unitID, lease string, services []string, isolation string) ([]Resident, string) {
+// An exclusive generation is sized from its rows' observed footprints
+// (generationClaims), the shared one by its topology profile.
+func (c *compiler) residents(unitID, lease string, services []string, isolation string, rowIDs []string) ([]Resident, string) {
 	var residents []Resident
 	if lease == "none" {
 		return nil, ""
@@ -864,9 +866,9 @@ func (c *compiler) residents(unitID, lease string, services []string, isolation 
 	switch isolation {
 	case "exclusive":
 		cluster := "postgres:unit:" + unitID
-		return append(residents, Resident{Key: cluster, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres"])}), cluster
+		return append(residents, Resident{Key: cluster, Scope: ScopeUnit, Claims: c.in.generationClaims(rowIDs)}), cluster
 	case "shared":
-		return append(residents, Resident{Key: "postgres:shared", Scope: shared, Claims: maps.Clone(physical["postgres"])}), "postgres:shared"
+		return append(residents, Resident{Key: "postgres:shared", Scope: shared, Claims: maps.Clone(physical["postgres_shared"])}), "postgres:shared"
 	}
 	return residents, ""
 }

@@ -414,7 +414,7 @@ func (p *Production) physicalClaims() (map[string]map[string]int64, error) {
 			return
 		}
 		topology, err := harnessschema.Decode(bytes)
-		if err != nil || harnessschema.Validate("cartulary.execution_topology.v16", topology) != nil {
+		if err != nil || harnessschema.Validate("cartulary.execution_topology.v17", topology) != nil {
 			p.physicalErr = errors.New("invalid physical resource topology")
 			return
 		}

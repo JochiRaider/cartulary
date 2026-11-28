@@ -1405,6 +1405,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-4 / G60, G64 | Look-ahead reservation over the whole need chain; estimates refreshed from current runs; pool-aware rank (D42); the entry producer's records declared | `p7-4-check01` to `-check03`, `p7-4-ci01`, `-ci02` (cancelled), `-ci03`, segments | `check` 477 s graph (483 s outer); `ci` 1,219 s graph, first cohorts at 5.8 s (16.11) |
 | 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
 | 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Approved as recommended (16.13) |
+| 2026-11-28 | P7-5c / G65 | Topology v17 PostgreSQL profiles; unit generations sized from per-row footprints (estimates v2); the broker sizes each `tmpfs` from its resident claim; `terminate-suite` records `postgres-footprint.json` | `p7-5c-seg-footprint`, `-footprint2`, eight segments | Implemented; gate pending (16.15) |
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
@@ -7027,3 +7028,51 @@ sampler did not start).
 - **Browser data.** The `ci` cgroup sampler did not start, so G70 is
   measured in P7-5f's `ci` runs instead.
 - **Memory.** At least 18 GB available, no OOM kills.
+
+### 16.15 Sized PostgreSQL Generations (P7-5c, G65)
+
+D43 as revised: the topology carries one claim per generation kind, and a
+unit generation is sized from its rows' observed footprints. The claim and
+the generation's `tmpfs` come from one value, so admission still bounds use.
+
+- **Topology v17.** `physical_resource_claims` gains `postgres_shared`
+  (1,792 MB), `postgres_browser_stack` (768 MB) and `postgres_measurement`
+  (4,352 MB). `postgres` (4,352 MB) stays the unit-generation ceiling and
+  default, the review owner's claim and a persistent session's reservation.
+  Every profile keeps the other quantities of `postgres` and no volume.
+- **Planner.** A unit generation claims three halves of its rows' largest
+  footprint, rounded up to 256 MB and held between 768 MB and 4,352 MB, when
+  every row has one; otherwise 4,352 MB. Shared, browser-stack and
+  measurement residents take their profiles. 256 MB steps, not 512, because
+  the claim already holds a 1.5 margin and the floor covers small units.
+- **Broker.** The fixture layer reads the resident's memory claim when it
+  creates a generation's owner and passes the claim less the 256 MiB server
+  budget as `CARTULARY_PGTEST_DATA_BYTES` (one new name, both writers).
+  `testservices` sizes the `tmpfs` from it, 4 GiB when absent.
+- **Footprints.** `terminate-suite` reads the container's
+  `/sys/fs/cgroup/memory.peak` before removing it and writes
+  `_shared/test-services/<suite>/postgres-footprint.json`
+  (`cartulary.test_services.postgres_footprint.v1`). The peak includes server
+  memory and page cache, so it bounds the data directory from above. A
+  failed read is reported and never fails cleanup.
+- **Estimates v2.** `generations` holds three peaks in MiB per row.
+  `estimate-refresh` folds each unit generation's footprint into every row
+  of that unit, skipping cached units and non-unit generations; a malformed
+  footprint refuses the run.
+- **Bound.** For a peak p, the data capacity is at least
+  max(512 MiB, 1.5p − 256 MiB), which is at least p, so a generation that
+  repeats its observed peak fits.
+- **Spec.** REQ-804's seed paragraph, REQ-865 and AC-168, the schema and
+  artifact tables.
+- **Segments.** `source-check CHECK=surface` and `CHECK=generated`, `lint
+  CHECK=go` and `CHECK=types`, the planner, suiteservices and
+  browser/testservices slices, and `harness-contract SUITE=contract` pass.
+  End to end, `p7-5c-seg-footprint` ran two `platform.jobs` rows in one unit
+  generation: 4 GiB capacity (no observation), 198 MiB peak. Folded into a
+  scratch copy of the estimates, the rerun `p7-5c-seg-footprint2` planned
+  768 MB, ran on a 512 MiB `tmpfs` and passed; the scratch fold was then
+  reverted.
+- **Gate (pending).** One `check` and one `ci` record footprints;
+  `estimate-refresh` folds them; then a `check` pair and one `ci` on sized
+  claims must show no disk-full failure, every peak under its capacity and
+  memory-blocked waits near zero at eight generations.

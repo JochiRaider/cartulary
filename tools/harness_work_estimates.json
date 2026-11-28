@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_estimates.v1",
+  "schema_id": "cartulary.harness_work_estimates.v2",
   "runs": [
     {"run_id":"p40-ref-check01","target":"check","source_digest":"sha256:9299a626b3fedb95bc7af2ddff3853174340b46323b751b24a2bfff732d6f3f0"},
     {"run_id":"p40-ref-ci01","target":"ci","source_digest":"sha256:9299a626b3fedb95bc7af2ddff3853174340b46323b751b24a2bfff732d6f3f0"},
@@ -2708,5 +2708,6 @@
     "harness.testservices_build": [4709,142,169],
     "harness.toolchain_drift": [160,127,118],
     "harness.visual_registry_check": [978,1305,1595]
-  }
+  },
+  "generations": {}
 }

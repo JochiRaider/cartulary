@@ -118,7 +118,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readExecutableRepositoryJSON(root, path.relative(root, topologyPath));
-  validateSchemaSync("cartulary.execution_topology.v16", topology);
+  validateSchemaSync("cartulary.execution_topology.v17", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);

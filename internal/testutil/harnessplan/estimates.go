@@ -25,19 +25,55 @@ import (
 // the source tree stays the plan's only input.
 const (
 	estimatesPath   = "tools/harness_work_estimates.json"
-	EstimatesSchema = "cartulary.harness_work_estimates.v1"
+	EstimatesSchema = "cartulary.harness_work_estimates.v2"
 	// maxObservations bounds each key's history; the estimate is its median.
 	maxObservations = 3
 	// maxFoldedRuns bounds the provenance list that refuses a run twice.
 	maxFoldedRuns = 20
 )
 
-// Estimates is the observed-estimates document.
+// Estimates is the observed-estimates document. Generations holds, per row,
+// the memory footprints in MiB of the unit generations that ran it
+// (TH-HARNESS-REQ-865, G65).
 type Estimates struct {
-	SchemaID   string             `json:"schema_id"`
-	Runs       []FoldedRun        `json:"runs"`
-	Rows       map[string][]int64 `json:"rows"`
-	Operations map[string][]int64 `json:"operations"`
+	SchemaID    string             `json:"schema_id"`
+	Runs        []FoldedRun        `json:"runs"`
+	Rows        map[string][]int64 `json:"rows"`
+	Operations  map[string][]int64 `json:"operations"`
+	Generations map[string][]int64 `json:"generations"`
+}
+
+// Generation claims are sized in these steps, with this floor, and a margin
+// of three halves over the largest observed footprint.
+const (
+	generationStepMB  = 256
+	generationFloorMB = 768
+)
+
+// generationClaims are a unit generation's resident claims. When every row
+// the unit runs has an observed footprint, memory is three halves of the
+// largest, rounded up to the step and held between the floor and the
+// topology's unit-generation claim, whose remaining claims it keeps.
+// Otherwise the unit takes that claim whole. Rows rather than units key the
+// observations because packing changes unit identities; a generation's peak
+// follows its largest test and its bounded WAL, so the rows' maximum carries
+// over when rows are repacked.
+func (in *Inputs) generationClaims(rowIDs []string) map[string]int64 {
+	claims := maps.Clone(in.Topology.PhysicalResourceClaims["postgres"])
+	if len(rowIDs) == 0 {
+		return claims
+	}
+	var largest int64
+	for _, id := range rowIDs {
+		observed := in.Estimates.Generations[id]
+		if len(observed) == 0 {
+			return claims
+		}
+		largest = max(largest, slices.Max(observed))
+	}
+	sized := (largest*3/2 + generationStepMB - 1) / generationStepMB * generationStepMB
+	claims["memory_mb"] = min(claims["memory_mb"], max(generationFloorMB, sized))
+	return claims
 }
 
 // FoldedRun is the provenance of one run whose observations were folded in.
@@ -88,7 +124,7 @@ func (in *Inputs) operationEstimate(id string) int64 {
 // that no longer exist are ignored by planning and pruned by the next
 // refresh, so removing a row never breaks the plan.
 func (e *Estimates) validate() error {
-	for kind, entries := range map[string]map[string][]int64{"rows": e.Rows, "operations": e.Operations} {
+	for kind, entries := range map[string]map[string][]int64{"rows": e.Rows, "operations": e.Operations, "generations": e.Generations} {
 		for key, values := range entries {
 			if key == "" || len(values) == 0 || len(values) > maxObservations {
 				return fmt.Errorf("%s %q: between 1 and %d observations required", kind, key, maxObservations)
@@ -139,9 +175,9 @@ var ErrRefresh = errors.New("estimate refresh rejected")
 
 // RefreshReport summarizes one refresh.
 type RefreshReport struct {
-	RunID                       string
-	Rows, Operations            int
-	PrunedRows, PrunedOperation int
+	RunID                         string
+	Rows, Operations, Generations int
+	PrunedRows, PrunedOperation   int
 }
 
 // retainedPlan is the part of a retained plan a refresh reads.
@@ -209,12 +245,15 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 	if err != nil {
 		return reject("%s events: %v", runDir, err)
 	}
-	estimates := Estimates{SchemaID: EstimatesSchema, Runs: slices.Clone(in.Estimates.Runs), Rows: maps.Clone(in.Estimates.Rows), Operations: maps.Clone(in.Estimates.Operations)}
+	estimates := Estimates{SchemaID: EstimatesSchema, Runs: slices.Clone(in.Estimates.Runs), Rows: maps.Clone(in.Estimates.Rows), Operations: maps.Clone(in.Estimates.Operations), Generations: maps.Clone(in.Estimates.Generations)}
 	if estimates.Rows == nil {
 		estimates.Rows = map[string][]int64{}
 	}
 	if estimates.Operations == nil {
 		estimates.Operations = map[string][]int64{}
+	}
+	if estimates.Generations == nil {
+		estimates.Generations = map[string][]int64{}
 	}
 	observe := func(entries map[string][]int64, key string, value int64) {
 		history := append(slices.Clone(entries[key]), max(1, value))
@@ -267,10 +306,32 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 			report.Rows++
 		}
 	}
+	// Each unit generation's footprint is observed for every row it ran.
+	footprints, err := generationFootprints(runDir)
+	if err != nil {
+		return reject("%s footprints: %v", runDir, err)
+	}
+	for _, unit := range plan.Graph.Units {
+		peak, ok := footprints["postgres:unit:"+unit.ID]
+		if !ok || cached[unit.ID] {
+			continue
+		}
+		for _, binding := range unit.RowBindings {
+			if _, known := in.rowIndex[binding.RowID]; known {
+				observe(estimates.Generations, binding.RowID, peak)
+				report.Generations++
+			}
+		}
+	}
 	for key := range estimates.Rows {
 		if _, known := in.rowIndex[key]; !known {
 			delete(estimates.Rows, key)
 			report.PrunedRows++
+		}
+	}
+	for key := range estimates.Generations {
+		if _, known := in.rowIndex[key]; !known {
+			delete(estimates.Generations, key)
 		}
 	}
 	for key := range estimates.Operations {
@@ -292,6 +353,32 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 		return reject("%v", err)
 	}
 	return estimates, report, nil
+}
+
+// GenerationFootprintSchema is the record a broker generation leaves when it
+// stops: its allocation and the peak memory of its container, data included.
+const GenerationFootprintSchema = "cartulary.test_services.postgres_footprint.v1"
+
+// generationFootprints reads every generation footprint a retained run left,
+// as peak MiB by allocation reference.
+func generationFootprints(runDir string) (map[string]int64, error) {
+	paths, err := filepath.Glob(filepath.Join(runDir, "_shared", "test-services", "*", "postgres-footprint.json"))
+	if err != nil {
+		return nil, err
+	}
+	footprints := map[string]int64{}
+	for _, path := range paths {
+		var record struct {
+			SchemaID        string `json:"schema_id"`
+			AllocationRef   string `json:"allocation_ref"`
+			MemoryPeakBytes int64  `json:"memory_peak_bytes"`
+		}
+		if err := readJSON(path, &record); err != nil || record.SchemaID != GenerationFootprintSchema || record.AllocationRef == "" || record.MemoryPeakBytes <= 0 {
+			return nil, fmt.Errorf("%s is not a generation footprint", path)
+		}
+		footprints[record.AllocationRef] = max(footprints[record.AllocationRef], (record.MemoryPeakBytes+(1<<20)-1)>>20)
+	}
+	return footprints, nil
 }
 
 // runnerOverhead is the startup and cleanup allowance the planner adds to a
@@ -379,7 +466,7 @@ func canonicalEstimates(e Estimates) ([]byte, error) {
 	for _, section := range []struct {
 		name    string
 		entries map[string][]int64
-	}{{"rows", e.Rows}, {"operations", e.Operations}} {
+	}{{"rows", e.Rows}, {"operations", e.Operations}, {"generations", e.Generations}} {
 		out.WriteString(",\n  \"" + section.name + "\": {")
 		keys := slices.SortedFunc(maps.Keys(section.entries), cmp.Compare[string])
 		for i, key := range keys {

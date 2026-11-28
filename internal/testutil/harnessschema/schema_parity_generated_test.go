@@ -115,6 +115,7 @@ case "probe.pattern89": return probeSchema142(value)
 case "probe.pattern90": return probeSchema143(value)
 case "probe.pattern91": return probeSchema144(value)
 case "probe.pattern92": return probeSchema145(value)
+case "probe.pattern93": return probeSchema146(value)
 default: return false
 }
 }
@@ -1172,7 +1173,7 @@ return true
 func probeSchema136(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"process:",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaPattern("^postgres:[A-Za-z0-9_.:/-]+$", s) { return false }
 }
 return true
 }
@@ -1180,7 +1181,7 @@ return true
 func probeSchema137(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"producer:",4,4,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaToken(s,"process:",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -1188,7 +1189,7 @@ return true
 func probeSchema138(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"request:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"producer:",4,4,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -1196,7 +1197,7 @@ return true
 func probeSchema139(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"resident:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"request:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -1204,7 +1205,7 @@ return true
 func probeSchema140(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^resource:[A-Za-z0-9_.-]+:[0-9a-f-]{36}:[a-z_]+-[a-f0-9]{64}$", s) { return false }
+if !schemaToken(s,"resident:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -1212,7 +1213,7 @@ return true
 func probeSchema141(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"sha256:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaPattern("^resource:[A-Za-z0-9_.-]+:[0-9a-f-]{36}:[a-z_]+-[a-f0-9]{64}$", s) { return false }
 }
 return true
 }
@@ -1228,7 +1229,7 @@ return true
 func probeSchema143(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"uireview-",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"sha256:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -1242,6 +1243,14 @@ return true
 }
 
 func probeSchema145(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if !schemaToken(s,"uireview-",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+}
+return true
+}
+
+func probeSchema146(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if !schemaToken(s,"visual.renderer.",1,-1,0x3ff000000000000,0x7fffffe80000000,0x3ff000000000000,0x7fffffe80000000) { return false }
@@ -18141,7 +18150,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern88","\"a\\r\\n\"",false},
 {"probe.pattern88","\"a \"",false},
 {"probe.pattern88","\"a \"",false},
-{"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern88","\"2026-10-10T00:00:00.000Z\"",false},
 {"probe.pattern88","\"command.v1\"",false},
@@ -18160,7 +18169,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern88","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern88","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern88","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern88","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern88","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -18521,7 +18530,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern90","\"a\\r\\n\"",false},
 {"probe.pattern90","\"a \"",false},
 {"probe.pattern90","\"a \"",false},
-{"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern90","\"2026-10-10T00:00:00.000Z\"",false},
 {"probe.pattern90","\"command.v1\"",false},
@@ -18540,7 +18549,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern90","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern90","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern90","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern90","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern90","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -19079,5 +19088,195 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern92","\"a}\"",false},
 {"probe.pattern92","\"a~\"",false},
 {"probe.pattern92","\"a\"",false},
+{"probe.pattern93","\"\"",false},
+{"probe.pattern93","\"a\"",false},
+{"probe.pattern93","\"a/b\"",false},
+{"probe.pattern93","\"a/../b\"",false},
+{"probe.pattern93","\"a/./b\"",false},
+{"probe.pattern93","\"a//b\"",false},
+{"probe.pattern93","\"/a\"",false},
+{"probe.pattern93","\"a\\n\"",false},
+{"probe.pattern93","\"a\\r\"",false},
+{"probe.pattern93","\"a\\r\\n\"",false},
+{"probe.pattern93","\"a \"",false},
+{"probe.pattern93","\"a \"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
+{"probe.pattern93","\"2026-10-10T00:00:00.000Z\"",false},
+{"probe.pattern93","\"command.v1\"",false},
+{"probe.pattern93","\"😀\"",false},
+{"probe.pattern93","\"\"",false},
+{"probe.pattern93","\"_\"",false},
+{"probe.pattern93","\"sha256:\"",false},
+{"probe.pattern93","\"a\"",false},
+{"probe.pattern93","\"_a\"",false},
+{"probe.pattern93","\"sha256:a\"",false},
+{"probe.pattern93","\"aa\"",false},
+{"probe.pattern93","\"_aa\"",false},
+{"probe.pattern93","\"sha256:aa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern93","\"a\\u0000\"",false},
+{"probe.pattern93","\"a\\u0001\"",false},
+{"probe.pattern93","\"a\\u0002\"",false},
+{"probe.pattern93","\"a\\u0003\"",false},
+{"probe.pattern93","\"a\\u0004\"",false},
+{"probe.pattern93","\"a\\u0005\"",false},
+{"probe.pattern93","\"a\\u0006\"",false},
+{"probe.pattern93","\"a\\u0007\"",false},
+{"probe.pattern93","\"a\\b\"",false},
+{"probe.pattern93","\"a\\t\"",false},
+{"probe.pattern93","\"a\\n\"",false},
+{"probe.pattern93","\"a\\u000b\"",false},
+{"probe.pattern93","\"a\\f\"",false},
+{"probe.pattern93","\"a\\r\"",false},
+{"probe.pattern93","\"a\\u000e\"",false},
+{"probe.pattern93","\"a\\u000f\"",false},
+{"probe.pattern93","\"a\\u0010\"",false},
+{"probe.pattern93","\"a\\u0011\"",false},
+{"probe.pattern93","\"a\\u0012\"",false},
+{"probe.pattern93","\"a\\u0013\"",false},
+{"probe.pattern93","\"a\\u0014\"",false},
+{"probe.pattern93","\"a\\u0015\"",false},
+{"probe.pattern93","\"a\\u0016\"",false},
+{"probe.pattern93","\"a\\u0017\"",false},
+{"probe.pattern93","\"a\\u0018\"",false},
+{"probe.pattern93","\"a\\u0019\"",false},
+{"probe.pattern93","\"a\\u001a\"",false},
+{"probe.pattern93","\"a\\u001b\"",false},
+{"probe.pattern93","\"a\\u001c\"",false},
+{"probe.pattern93","\"a\\u001d\"",false},
+{"probe.pattern93","\"a\\u001e\"",false},
+{"probe.pattern93","\"a\\u001f\"",false},
+{"probe.pattern93","\"a \"",false},
+{"probe.pattern93","\"a!\"",false},
+{"probe.pattern93","\"a\\\"\"",false},
+{"probe.pattern93","\"a#\"",false},
+{"probe.pattern93","\"a$\"",false},
+{"probe.pattern93","\"a%\"",false},
+{"probe.pattern93","\"a&\"",false},
+{"probe.pattern93","\"a'\"",false},
+{"probe.pattern93","\"a(\"",false},
+{"probe.pattern93","\"a)\"",false},
+{"probe.pattern93","\"a*\"",false},
+{"probe.pattern93","\"a+\"",false},
+{"probe.pattern93","\"a,\"",false},
+{"probe.pattern93","\"a-\"",false},
+{"probe.pattern93","\"a.\"",false},
+{"probe.pattern93","\"a/\"",false},
+{"probe.pattern93","\"a0\"",false},
+{"probe.pattern93","\"a1\"",false},
+{"probe.pattern93","\"a2\"",false},
+{"probe.pattern93","\"a3\"",false},
+{"probe.pattern93","\"a4\"",false},
+{"probe.pattern93","\"a5\"",false},
+{"probe.pattern93","\"a6\"",false},
+{"probe.pattern93","\"a7\"",false},
+{"probe.pattern93","\"a8\"",false},
+{"probe.pattern93","\"a9\"",false},
+{"probe.pattern93","\"a:\"",false},
+{"probe.pattern93","\"a;\"",false},
+{"probe.pattern93","\"a<\"",false},
+{"probe.pattern93","\"a=\"",false},
+{"probe.pattern93","\"a>\"",false},
+{"probe.pattern93","\"a?\"",false},
+{"probe.pattern93","\"a@\"",false},
+{"probe.pattern93","\"aA\"",false},
+{"probe.pattern93","\"aB\"",false},
+{"probe.pattern93","\"aC\"",false},
+{"probe.pattern93","\"aD\"",false},
+{"probe.pattern93","\"aE\"",false},
+{"probe.pattern93","\"aF\"",false},
+{"probe.pattern93","\"aG\"",false},
+{"probe.pattern93","\"aH\"",false},
+{"probe.pattern93","\"aI\"",false},
+{"probe.pattern93","\"aJ\"",false},
+{"probe.pattern93","\"aK\"",false},
+{"probe.pattern93","\"aL\"",false},
+{"probe.pattern93","\"aM\"",false},
+{"probe.pattern93","\"aN\"",false},
+{"probe.pattern93","\"aO\"",false},
+{"probe.pattern93","\"aP\"",false},
+{"probe.pattern93","\"aQ\"",false},
+{"probe.pattern93","\"aR\"",false},
+{"probe.pattern93","\"aS\"",false},
+{"probe.pattern93","\"aT\"",false},
+{"probe.pattern93","\"aU\"",false},
+{"probe.pattern93","\"aV\"",false},
+{"probe.pattern93","\"aW\"",false},
+{"probe.pattern93","\"aX\"",false},
+{"probe.pattern93","\"aY\"",false},
+{"probe.pattern93","\"aZ\"",false},
+{"probe.pattern93","\"a[\"",false},
+{"probe.pattern93","\"a\\\\\"",false},
+{"probe.pattern93","\"a]\"",false},
+{"probe.pattern93","\"a^\"",false},
+{"probe.pattern93","\"a_\"",false},
+{"probe.pattern93","\"a`\"",false},
+{"probe.pattern93","\"aa\"",false},
+{"probe.pattern93","\"ab\"",false},
+{"probe.pattern93","\"ac\"",false},
+{"probe.pattern93","\"ad\"",false},
+{"probe.pattern93","\"ae\"",false},
+{"probe.pattern93","\"af\"",false},
+{"probe.pattern93","\"ag\"",false},
+{"probe.pattern93","\"ah\"",false},
+{"probe.pattern93","\"ai\"",false},
+{"probe.pattern93","\"aj\"",false},
+{"probe.pattern93","\"ak\"",false},
+{"probe.pattern93","\"al\"",false},
+{"probe.pattern93","\"am\"",false},
+{"probe.pattern93","\"an\"",false},
+{"probe.pattern93","\"ao\"",false},
+{"probe.pattern93","\"ap\"",false},
+{"probe.pattern93","\"aq\"",false},
+{"probe.pattern93","\"ar\"",false},
+{"probe.pattern93","\"as\"",false},
+{"probe.pattern93","\"at\"",false},
+{"probe.pattern93","\"au\"",false},
+{"probe.pattern93","\"av\"",false},
+{"probe.pattern93","\"aw\"",false},
+{"probe.pattern93","\"ax\"",false},
+{"probe.pattern93","\"ay\"",false},
+{"probe.pattern93","\"az\"",false},
+{"probe.pattern93","\"a{\"",false},
+{"probe.pattern93","\"a|\"",false},
+{"probe.pattern93","\"a}\"",false},
+{"probe.pattern93","\"a~\"",false},
+{"probe.pattern93","\"a\"",false},
 } { value, err := Decode([]byte(c.text)); if err != nil {t.Fatal(err)}; if validProbeSchema(c.id,value) != c.valid { t.Errorf("%s input %s: expected %v",c.id,c.text,c.valid) } }
 }

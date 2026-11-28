@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.execution_topology.v16",
+  "$id": "cartulary.execution_topology.v17",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.execution_topology.v16"
+      "const": "cartulary.execution_topology.v17"
     },
     "runtime_profiles": {
       "type": "array",
@@ -153,6 +153,9 @@
       "additionalProperties": false,
       "required": [
         "postgres",
+        "postgres_shared",
+        "postgres_browser_stack",
+        "postgres_measurement",
         "object_store",
         "browser_stack",
         "renderer"
@@ -168,6 +171,15 @@
           "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
         },
         "renderer": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        },
+        "postgres_shared": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        },
+        "postgres_browser_stack": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        },
+        "postgres_measurement": {
           "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
         }
       }

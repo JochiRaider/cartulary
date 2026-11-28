@@ -187,8 +187,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.execution_topology.v16",
-      "path": "tools/schemas/cartulary.execution_topology.v16.schema.json",
+      "schema_id": "cartulary.execution_topology.v17",
+      "path": "tools/schemas/cartulary.execution_topology.v17.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
       "validation": "harness.json_shape_check",
@@ -933,8 +933,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_work_estimates.v1",
-      "path": "tools/schemas/cartulary.harness_work_estimates.v1.schema.json",
+      "schema_id": "cartulary.harness_work_estimates.v2",
+      "path": "tools/schemas/cartulary.harness_work_estimates.v2.schema.json",
       "classification": "owner_input",
       "producer": "estimate-refresh maintenance command",
       "validation": "harness.json_shape_check"
@@ -1707,6 +1707,14 @@
       "classification": "shared_component",
       "producer": "service suite cleanup authority",
       "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.test_services.postgres_footprint.v1",
+      "path": "tools/schemas/cartulary.test_services.postgres_footprint.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "service suite",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_services.scope.v2",

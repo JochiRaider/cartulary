@@ -81,17 +81,20 @@ func (s *SuiteOwner) Close(ctx context.Context) error {
 
 type ProductionOptions struct {
 	ServiceKey, ServiceID, PostgresIsolation, PostgresAllocation string
-	ServiceDependencies                                          []string
-	BrowserLaneLimit                                             int
-	residency                                                    *residency
-	Root, RunRoot, Target                                        string
-	Runtime                                                      *harnesssession.Runtime
-	Environment                                                  map[string]string
-	Run                                                          Command
-	ContainerProof                                               func(context.Context, map[string]any, bool)
-	Dependencies                                                 []string
-	ReportCleanup                                                func(CleanupOutcome)
-	RecoveryOutput                                               bool
+	// PostgresDataBytes is the generation's memory-backed data capacity, which
+	// its resident claim affords; zero where no resident claims it.
+	PostgresDataBytes     int64
+	ServiceDependencies   []string
+	BrowserLaneLimit      int
+	residency             *residency
+	Root, RunRoot, Target string
+	Runtime               *harnesssession.Runtime
+	Environment           map[string]string
+	Run                   Command
+	ContainerProof        func(context.Context, map[string]any, bool)
+	Dependencies          []string
+	ReportCleanup         func(CleanupOutcome)
+	RecoveryOutput        bool
 }
 
 func (p ProductionOptions) command() Command {
@@ -254,7 +257,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if p.ServiceDependencies != nil {
 		maps.Copy(environment, runcontext.Services(p.ServiceDependencies))
 	}
-	maps.Copy(environment, suiteservices.PostgresAllocation{Isolation: p.PostgresIsolation, Ref: p.PostgresAllocation}.Environment())
+	maps.Copy(environment, suiteservices.PostgresAllocation{Isolation: p.PostgresIsolation, Ref: p.PostgresAllocation, DataBytes: p.PostgresDataBytes}.Environment())
 	dependencies := append([]string{}, p.residency.reference(p.ServiceKey)...)
 
 	// Recovery authority belongs to the broker and must survive failure before

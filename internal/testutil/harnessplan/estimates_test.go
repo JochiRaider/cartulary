@@ -3,6 +3,7 @@ package harnessplan
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -58,7 +59,7 @@ func TestObservedEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	in.Estimates = Estimates{SchemaID: EstimatesSchema, Rows: map[string][]int64{}, Operations: map[string][]int64{}}
+	in.Estimates = Estimates{SchemaID: EstimatesSchema, Rows: map[string][]int64{}, Operations: map[string][]int64{}, Generations: map[string][]int64{}}
 	var goRows []Row
 	for _, row := range in.Catalog.Rows {
 		if row.Runner == RunnerGo && row.EvidenceClass == "unit" && row.EstimatedWorkMS == 0 {
@@ -159,16 +160,89 @@ func TestObservedEstimates(t *testing.T) {
 		}
 	})
 
+	t.Run("a unit generation is sized from its rows' largest footprint", func(t *testing.T) {
+		saved := in.Estimates
+		defer func() { in.Estimates = saved }()
+		topology := in.Topology.PhysicalResourceClaims["postgres"]
+		in.Estimates = Estimates{SchemaID: EstimatesSchema, Rows: map[string][]int64{}, Operations: map[string][]int64{},
+			Generations: map[string][]int64{a.RowID: {300, 900, 400}, b.RowID: {100}, goRows[2].RowID: {10_000}}}
+		sized := in.generationClaims([]string{a.RowID, b.RowID})
+		if sized["memory_mb"] != 1536 {
+			t.Fatalf("three halves of 900 MiB rounded to the step: %d", sized["memory_mb"])
+		}
+		for resource, quantity := range topology {
+			if resource != "memory_mb" && sized[resource] != quantity {
+				t.Fatalf("sizing changed %s: %d", resource, sized[resource])
+			}
+		}
+		if got := in.generationClaims([]string{b.RowID})["memory_mb"]; got != generationFloorMB {
+			t.Fatalf("a small generation is held at the floor: %d", got)
+		}
+		if got := in.generationClaims([]string{goRows[2].RowID})["memory_mb"]; got != topology["memory_mb"] {
+			t.Fatalf("a large generation is held at the topology claim: %d", got)
+		}
+		var unobserved string
+		for _, row := range in.Catalog.Rows {
+			if in.Estimates.Generations[row.RowID] == nil {
+				unobserved = row.RowID
+				break
+			}
+		}
+		for _, rows := range [][]string{nil, {a.RowID, unobserved}} {
+			if got := in.generationClaims(rows); !maps.Equal(got, topology) {
+				t.Fatalf("rows %v without every footprint take the topology claim: %v", rows, got)
+			}
+		}
+		if topology["memory_mb"] != 4352 {
+			t.Fatal("sizing changed the loaded topology")
+		}
+	})
+
+	t.Run("a run folds each unit generation's footprint into every row it ran", func(t *testing.T) {
+		units := []map[string]any{
+			{"unit_id": "go:pair", "kind": "runner", "row_bindings": []map[string]string{{"row_id": a.RowID, "runner": "go"}, {"row_id": b.RowID, "runner": "go"}}},
+			{"unit_id": "go:cached", "kind": "runner", "row_bindings": []map[string]string{{"row_id": goRows[2].RowID, "runner": "go"}}},
+		}
+		events := slices.Concat(runner("go:pair", "phase:1", 0, overhead+4000), []map[string]any{{"event": "cache_hit", "unit_id": "go:cached", "monotonic_ms": 5}})
+		run := retainedRun(t, units, events, map[string]int64{a.RowID: 1000, b.RowID: 3000, goRows[2].RowID: 50})
+		footprint := func(suite, ref string, peak int64) {
+			dir := filepath.Join(run, "_shared", "test-services", suite)
+			data, _ := json.Marshal(map[string]any{"schema_id": GenerationFootprintSchema, "allocation_ref": ref, "data_capacity_bytes": 1 << 30, "memory_peak_bytes": peak})
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "postgres-footprint.json"), data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		footprint("one", "postgres:unit:go:pair", 700<<20+1)
+		footprint("two", "postgres:unit:go:cached", 900<<20)
+		footprint("three", "postgres:shared", 2000<<20)
+		folded, report, err := in.foldRun(run)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(folded.Generations[a.RowID], []int64{701}) || !slices.Equal(folded.Generations[b.RowID], []int64{701}) ||
+			folded.Generations[goRows[2].RowID] != nil || report.Generations != 2 {
+			t.Fatalf("generations %v report %+v", folded.Generations, report)
+		}
+		footprint("four", "", 1)
+		if _, _, err := in.foldRun(run); !errors.Is(err, ErrRefresh) || !strings.Contains(err.Error(), "footprint") {
+			t.Fatalf("a malformed footprint was folded: %v", err)
+		}
+	})
+
 	t.Run("the written document is canonical, sorted and strict", func(t *testing.T) {
 		data, err := canonicalEstimates(Estimates{SchemaID: EstimatesSchema, Runs: []FoldedRun{{RunID: "r", Target: "check", SourceDigest: "sha256:" + strings.Repeat("b", 64)}},
-			Rows: map[string][]int64{"z.row": {2}, "a.row": {1, 3}}, Operations: map[string][]int64{}})
+			Rows: map[string][]int64{"z.row": {2}, "a.row": {1, 3}}, Operations: map[string][]int64{}, Generations: map[string][]int64{"g.row": {768}}})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err := canonicaljson.DecodeStrict(data); err != nil {
 			t.Fatal(err)
 		}
-		if strings.Index(string(data), `"a.row"`) > strings.Index(string(data), `"z.row"`) || !strings.Contains(string(data), "\n    \"a.row\": [1,3],\n") {
+		if strings.Index(string(data), `"a.row"`) > strings.Index(string(data), `"z.row"`) || !strings.Contains(string(data), "\n    \"a.row\": [1,3],\n") ||
+			!strings.Contains(string(data), "\"generations\": {\n    \"g.row\": [768]\n  }") {
 			t.Fatalf("document %s", data)
 		}
 	})

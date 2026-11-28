@@ -329,10 +329,10 @@ func (c *compiler) browserResidents(cohort *browserCohort) ([]Resident, string) 
 		return residents, ""
 	}
 	if cohort.fixture != nil {
-		return append(residents, Resident{Key: cohort.fixture.cluster, Scope: ScopeGraph, Claims: maps.Clone(physical["postgres"])}), cohort.fixture.cluster
+		return append(residents, Resident{Key: cohort.fixture.cluster, Scope: ScopeGraph, Claims: maps.Clone(physical["postgres_measurement"])}), cohort.fixture.cluster
 	}
 	cluster := "postgres:" + cohort.stack
-	return append(residents, Resident{Key: cluster, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres"])}), cluster
+	return append(residents, Resident{Key: cluster, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres_browser_stack"])}), cluster
 }
 
 // fixtureBuilder builds the one unit that constructs and seals a populated
@@ -360,7 +360,7 @@ func (c *compiler) fixtureBuilder(fixture *rowFixture, stack []string) (string, 
 	profile := fixture.profile.FixtureProfileID
 	c.units[id] = &Unit{
 		ID: id, OwnerID: browserLifecycleUnit, Kind: "fixture_builder", Needs: needs, Claims: claims,
-		Residents:   []Resident{{Key: fixture.cluster, Scope: ScopeGraph, Claims: maps.Clone(c.in.Topology.PhysicalResourceClaims["postgres"])}},
+		Residents:   []Resident{{Key: fixture.cluster, Scope: ScopeGraph, Claims: maps.Clone(c.in.Topology.PhysicalResourceClaims["postgres_measurement"])}},
 		SharedLocks: []string{"host_activity"}, FixtureLease: builder.FixtureCapability, ServiceDependencies: sortedCopy(builder.ServiceDependencies),
 		PostgresIsolation: builder.PostgresIsolation, CachePolicy: "none", TimeoutMS: c.timeout(builder.ResourceProfileID),
 		EvidenceOutputs: []string{"performance-fixtures/" + fixture.key + "/build-diagnostics.json", "performance-fixtures/" + fixture.key + "/snapshot-build.json"},

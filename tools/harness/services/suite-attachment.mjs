@@ -13,8 +13,14 @@ export function suiteAttachmentEnvironment({ suiteID, callMode, lifecycleMode, p
 }
 
 // postgresAllocationEnvironment is the only Node writer of a suite process's
-// PostgreSQL allocation: its isolation and allocation reference. It always
-// writes both; suiteservices.PostgresAllocation is its Go form.
-export function postgresAllocationEnvironment({ isolation, ref }) {
-  return { CARTULARY_PGTEST_ISOLATION: isolation, CARTULARY_PGTEST_ALLOCATION_REF: ref };
+// PostgreSQL allocation: its isolation, allocation reference and the
+// memory-backed data capacity its resident claim affords (empty when it names
+// none). It always writes every name; suiteservices.PostgresAllocation is its
+// Go form.
+export function postgresAllocationEnvironment({ isolation, ref, dataBytes = 0 }) {
+  return {
+    CARTULARY_PGTEST_ISOLATION: isolation,
+    CARTULARY_PGTEST_ALLOCATION_REF: ref,
+    CARTULARY_PGTEST_DATA_BYTES: dataBytes > 0 ? String(dataBytes) : "",
+  };
 }

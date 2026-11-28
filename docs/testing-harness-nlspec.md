@@ -217,7 +217,7 @@ the UI-review skill infrastructure. Using the skill does not require running its
 self-tests. Shared harness safety and evidence checks retain their own owners and
 ordinary placements; product visual and accessibility requirements are unchanged.
 
-The current execution topology input is `cartulary.execution_topology.v16`.
+The current execution topology input is `cartulary.execution_topology.v17`.
 The reporting-derived `go_targets` object is retired. Its target-level sharding,
 parallelism, safety flags and family-to-binary bindings MUST NOT define execution
 policy. Catalog rows and the normalized execution contract own these requirements.
@@ -1648,13 +1648,27 @@ credential state; per-generation TLS material and the initialization script
 never enter it. Its key is the template digest, which binds the base image,
 every provisioning statement and the seed layout. Each use verifies the key
 label and creates the generation from the image's content ID. A broker
-generation keeps its data directory in a memory-backed filesystem (`tmpfs`)
-capped at 4 GiB, into which its entrypoint copies the seed before PostgreSQL
-starts; its resident claim covers that capacity and holds no disk volume. A
-seed builder and a test that owns its cluster directly keep a disk volume,
-which Docker fills from the image when the container is created. Neither
-writes through copy-on-write image layers, and the medium does not enter the
-template digest: the seed is the same on both (amended 2026-11-27, G62). A host-wide seed lock
+generation keeps its data directory in a memory-backed filesystem (`tmpfs`),
+into which its entrypoint copies the seed before PostgreSQL starts. Its
+capacity is its resident claim's memory less a 256 MiB server budget, so a
+generation never holds more memory than admission charged for it; a
+generation whose allocation names no resident claim, such as a persistent
+session's, takes 4 GiB, which the topology's `postgres` claim covers. The
+execution topology's PostgreSQL profiles carry the claims: `postgres_shared`
+(1,792 MB) for the shared generation, `postgres_browser_stack` (768 MB) for a
+browser stack's and `postgres_measurement` (4,352 MB) for a measurement
+fixture's. A unit generation's claim is sized from its rows' observed
+footprints under TH-HARNESS-REQ-865, with the `postgres` claim (4,352 MB) as
+its ceiling and its default. No PostgreSQL resident claim holds a disk volume.
+Before the generation's owner removes its container, it records the
+container's peak memory, data directory included, as
+`_shared/test-services/<suite-id>/postgres-footprint.json`
+(`cartulary.test_services.postgres_footprint.v1`); a failed observation
+records nothing and never fails cleanup. A seed builder and a test that owns
+its cluster directly keep a disk volume, which Docker fills from the image when
+the container is created. Neither writes through copy-on-write image layers,
+and the medium does not enter the template digest: the seed is the same on
+both (amended 2026-11-27, G62; sizing amended 2026-11-27, G65). A host-wide seed lock
 serializes builds: holders of the shared lock pin the seeds they are about to
 use until their container exists, and only the exclusive holder builds, prunes
 or removes seed-builder containers, which that exclusion proves orphaned. A
@@ -4835,6 +4849,7 @@ claim publication.
 | `cartulary.test_services.lifecycle.v3`          | `tools/schemas/cartulary.test_services.lifecycle.v3.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
 | `cartulary.test_services.local_session.v5`      | `tools/schemas/cartulary.test_services.local_session.v5.schema.json`      | present           | Local session manager    | Before status, attachment, or session cleanup. |
 | `cartulary.test_services.local_session_status.v1` | `tools/schemas/cartulary.test_services.local_session_status.v1.schema.json` | present         | Local session manager    | Before redacted status output. |
+| `cartulary.test_services.postgres_footprint.v1` | `tools/schemas/cartulary.test_services.postgres_footprint.v1.schema.json` | present           | Service suite            | Before `estimate-refresh` folds a generation footprint. |
 | `cartulary.test_services.scope.v2`              | `tools/schemas/cartulary.test_services.scope.v2.schema.json`              | present           | Service suite            | Before scheduler failure propagation consumes bounded service-suite diagnostics. |
 | `cartulary.object_store_readiness_diagnostic.v1` | `tools/schemas/cartulary.object_store_readiness_diagnostic.v1.schema.json` | present         | Service suite            | Before a known object-store readiness extension is retained or consumed. |
 | `cartulary.test_services.start_result.v2`       | `tools/schemas/cartulary.test_services.start_result.v2.schema.json`       | private           | Service suite broker     | Before scheduler fixture acquisition consumes a test-services start result. |
@@ -5454,6 +5469,7 @@ Verified by: TH-HARNESS-AC-135
 | Fixture lease                                        | Run-scoped broker                               | `_shared/fixture-leases/<lease-id>.json`                         | `cartulary.harness_fixture_lease.v5`                           | Capability, ownership, resources, acquisition, quarantine, cleanup outcome, and normalized cleanup failure | Retained as lifecycle and cleanup evidence. |
 | Runtime binary provenance                            | Go target runner                                | `_shared/<execution-family>/runtime-binaries.json` when an aggregate declares runtime binaries | diagnostic-only                                               | Runtime binary ID, scheduler-owned consumer env, producer target, normalized path, file digest, build-artifact ref, and output digest | Retained with the shared Go report. |
 | Service scope summary                                | Service suite                                   | `_shared/test-services/<suite-id>/service-scope.json`            | `cartulary.test_services.scope.v2`                         | Bounded suite identity, readiness, aggregate service, fixture, failure, and cleanup summaries closed by Section 11 | Retained; atomically replaced during lifecycle.              |
+| PostgreSQL generation footprint                      | Service suite                                   | `_shared/test-services/<suite-id>/postgres-footprint.json`       | `cartulary.test_services.postgres_footprint.v1`            | Allocation reference, memory-backed data capacity and peak container memory of one broker generation | Retained; written once before the generation's container is removed. |
 | Service producer journals                            | Service suite                                   | `_shared/test-services/<suite-id>/journals/<producer-id>.ndjson` | `cartulary.test_services.journal_event.v2`                 | Stable producer identity and gap-free local sequence; deterministic collation by event time, producer, and sequence | Retained only through suite finalization.                    |
 | Private service resource ledger                      | Service suite                                   | Private suite runtime state                                     | `cartulary.test_services.resource_ledger.v2`               | Exact mode-0600 owned-resource identities and cleanup state | Deleted after successful cleanup; redacted contained recovery copy only on cleanup failure. |
 | Service lifecycle event stream                       | Service suite                                   | `_shared/test-services/<suite-id>/lifecycle-events.jsonl`        | `cartulary.test_services.lifecycle.v3`                        | `seq` strictly increases; transitions match Section 11.2                               | Retained; not cleanup proof.                                |
@@ -9494,7 +9510,7 @@ Authored duration estimates are advisory scheduler planning data only. They MUST
 Every work unit MUST carry a positive `estimated_work_ms`. A row's planning
 estimate is the median of its observations in
 `tools/harness_work_estimates.json` (schema
-`cartulary.harness_work_estimates.v1`). Until a row is observed, its planning
+`cartulary.harness_work_estimates.v2`). Until a row is observed, its planning
 estimate is its own reviewed `estimated_work_ms` when the catalog row declares
 one, and otherwise the exact evidence-class estimate in the authored work-graph
 owner, per selected test for a Playwright row. An operation's planning estimate
@@ -9509,8 +9525,8 @@ whose estimate plus the Go invocation policy's startup and cleanup allowance
 exceeds the packing bound, and the packer MUST fail closed rather than emit a
 cohort above the bound. Rows of the `measurement` evidence class are exempt:
 they run explicit-only under their capacity profile's runner timeout, and the
-packer never shares their cohort with another row. Estimates affect rank and
-packing only. They MUST NOT change selection, timeout, failure, cache, fixture,
+packer never shares their cohort with another row. Estimates affect rank,
+packing and unit-generation memory only. They MUST NOT change selection, timeout, failure, cache, fixture,
 or evidence semantics.
 
 Observations enter only through `make estimate-refresh RESULTS_DIR=<run>`,
@@ -9527,7 +9543,21 @@ evidence phases contribute nothing. A refresh whose result would put a
 non-measurement Go row, with the Go allowance, above the packing bound, or any
 row at or above its unit timeout, is refused and names the row, which is then
 split or reclassified. Entries for rows or operations that no longer exist are
-ignored by planning and removed by the next refresh. A missing estimate,
+ignored by planning and removed by the next refresh.
+
+A unit generation's PostgreSQL resident memory is planned from the file's
+`generations`: per row, the peak footprints in MiB of the unit generations that
+ran it, three most recent kept (amended 2026-11-27, G65). When every row of a
+unit has an observation, the unit's generation claims three halves of the
+largest, rounded up to 256 MB and held between 768 MB and the topology's
+`postgres` claim, whose other quantities it keeps; otherwise it claims the
+`postgres` claim whole. Rows rather than units key the observations because
+packing changes unit identities, and a generation's peak follows its largest
+test, so the rows' maximum carries over when rows are repacked. A refresh folds
+each footprint of the run (TH-HARNESS-REQ-804) whose allocation is the unit
+generation of a unit not served from the cache into every catalog row that unit
+ran; footprints of shared, browser-stack and measurement generations size their
+topology profiles by review instead, and a malformed footprint refuses the run. A missing estimate,
 aggregate target envelope copied into multiple units, or fixture interval
 attributed as command work is invalid planning input and MUST fail graph
 compilation rather than silently selecting a legacy default.
@@ -12256,7 +12286,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-165 | REQ-869 | A Go event stream with nested subtests, pass, fail and skip, a package elapsed time, a secret-bearing name, an over-length name and more than 4,096 observations; basic and off modes; an unwritable destination | Basic mode retains one schema-valid file per Go unit with every observation in terminal-event order, the redacted name and exact omission counts; off mode writes none; row outcomes are identical with and without the file | A missing or reordered observation, invented duration, truncated or unredacted name, file in off mode, or row outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-166 | REQ-870 | A failing and a passing unit; a pressure source that reports all, some or none of the resources; a window longer than the ring; an unwritable log directory | The failing unit retains one schema-valid window covering 30 s before its admission to its terminal instant, with nulls for unreported resources and `truncated` when the ring had rolled; the passing unit retains none; outcomes are identical when writing fails | A window for a passing unit, a sample outside the window, an invented share, or an outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-167 | REQ-871 | A stress run of a slice that passes, one whose second repetition fails, an invalid `REPEAT` or `LOAD`, an existing run ID, and cancellation | Each repetition is a distinct slice run with the cache off; every repetition runs after a failure; the summary validates and lists each repetition; the exit status is `0` only when all passed; usage errors exit `2` before any run; the load process ends with the command | A skipped repetition after a failure, a reused run root, a load process that survives the command, or a zero exit with a failed repetition fails. |
-| TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior | A cached or retired unit observed, an unbounded history, a refused run written, or a plan or audit that ignores an observation fails. |
+| TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history; generation footprints of the two-row unit, the cached unit and the shared generation, and a malformed footprint; units whose rows have full, partial and no footprint observations | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior; the two-row unit's footprint is folded into both its rows and no other footprint is, the malformed footprint refuses the run, and a unit generation claims three halves of its rows' largest footprint in 256 MB steps between 768 MB and the topology claim, or the topology claim whole when a row is unobserved | A cached or retired unit observed, an unbounded history, a refused run written, a plan or audit that ignores an observation, a non-unit footprint folded, or a generation claim outside its bounds or sized from a partial observation fails. |
 | TH-HARNESS-AC-169 | REQ-806 | A test-owned cohort and a shared-state cohort, each with a failing first test; a stack that fails during a test-owned cohort | The test-owned cohort runs every selected test, reports each outcome, fails and quarantines its allocation at release; the shared-state cohort stops at the first failure and accounts for its unexecuted rows; tests after a stack failure fail at their own fixture setup | A test-owned cohort that stops at its first failure, a shared-state cohort that continues, or a cohort that waits on test deadlines after its stack failed fails. |
 | TH-HARNESS-AC-170 | REQ-802 | A selection with more ordinary browser cohorts than `BROWSER_LANES`, one measurement cohort, and a capacity snapshot | The plan's capacities include `browser_lane` equal to the lane limit; each ordinary cohort claims one lane and its own unit-scoped stack and stack cluster, needs no other browser cohort, and takes no browser session lock; the measurement cohort keeps its quiet exclusive lock and graph-scoped snapshot cluster | A chained browser cohort, a lane claim on a measurement cohort, a shared ordinary stack, or more running ordinary cohorts than lanes fails. |
 | TH-HARNESS-AC-171 | REQ-872 | Go units over passing, failing, skipped and missing tests; typed setup and cleanup markers, split, interleaved, truncated, oversized, conflicting and malformed; an event line over 1 MiB; a race context, a shuffle seed and an independent-module package; an unregistered module package; a relative machine cache path; a nonzero exit with every row passed | Each unit's command is the exact `go test` invocation and its Go bindings carry their tests; rows settle by the adapter's rules and publish as schema-valid results; the unit passes exactly when its rows pass; failure detail and `[FAIL]` lines reach the error log; a passing unit retains no standard output; the master key reaches only the repository's own module; durations are written under basic diagnostics | A broadened `-run`, a missing `-race`, `-shuffle` or `-C`, a row settled from an over-bound stream, a malformed marker attributed, a unit outcome that disagrees with its rows, or a module receiving the test key fails. |

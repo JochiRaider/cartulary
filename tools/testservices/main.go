@@ -1087,7 +1087,7 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		)
 	}
 
-	for _, result := range terminateSuiteServices(cleanupCtx, lease) {
+	for _, result := range terminateSuiteServices(cleanupCtx, lease, leaseEnv) {
 		recordTimingSpanStatusAt(deps, leaseEnv, bucketTeardown, result.label, result.start, result.end, result.err, true)
 		if result.err != nil {
 			status = 1
@@ -1735,11 +1735,15 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 
 func startPostgresServiceWith(ctx context.Context, env map[string]string, start func(context.Context, pgtest.StartOptions) (*pgtest.OwnedCluster, error)) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
+	// Broker generations are discarded with their run, so their data lives in
+	// memory with unchanged durability settings (TH-HARNESS-REQ-804).
+	dataBytes, err := generationDataBytes(env)
+	if err != nil {
+		return postgresService{}, err
+	}
 	harness, err := start(ctx, pgtest.StartOptions{
-		Labels: labels,
-		// Broker generations are discarded with their run, so their data lives
-		// in memory with unchanged durability settings (TH-HARNESS-REQ-804).
-		MemoryDataBytes: pgtest.GenerationMemoryDataBytes,
+		Labels:          labels,
+		MemoryDataBytes: dataBytes,
 		Observer:        suiteServiceStartObserver(env, suiteservices.ServicePostgres),
 		Events:          func(event suiteservices.Event) error { return suiteservices.RecordEvent(env, event) },
 		Readiness: func(diagnostic suiteservices.PostgresReadinessDiagnostic) {
@@ -1778,6 +1782,34 @@ func startPostgresServiceWith(ctx context.Context, env map[string]string, start 
 		image:       pgtest.ContainerImage(),
 		labels:      labels,
 	}, err
+}
+
+// generationDataBytes is a generation's memory-backed data capacity: what its
+// allocation's resident claim affords, or the default where it names none.
+func generationDataBytes(env map[string]string) (int64, error) {
+	dataBytes, err := suiteservices.PostgresDataBytes(env)
+	if err != nil || dataBytes > 0 {
+		return dataBytes, err
+	}
+	return pgtest.GenerationMemoryDataBytes, nil
+}
+
+// recordPostgresFootprint observes a generation's peak memory before its
+// container, and with it its cgroup, is removed. The footprint is planning
+// evidence (TH-HARNESS-REQ-865): an unobserved generation leaves its rows on
+// the topology claim, so a failed observation is reported, never a failure.
+func recordPostgresFootprint(ctx context.Context, env map[string]string, containerID string, observeMemoryPeak func(context.Context, string) (int64, error)) {
+	dataBytes, err := generationDataBytes(env)
+	var peak int64
+	if err == nil {
+		peak, err = observeMemoryPeak(ctx, containerID)
+	}
+	if err == nil {
+		err = suiteservices.RecordPostgresFootprint(env, dataBytes, peak)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "test-services: postgres footprint not recorded: %v\n", err)
+	}
 }
 
 func startObjectStoreService(ctx context.Context, env map[string]string) (objectStoreService, error) {
@@ -2697,7 +2729,7 @@ func cleanupServices(ctx context.Context, postgresSvc postgresService, objectSto
 	return cleanups
 }
 
-func terminateSuiteServices(parent context.Context, lease leaseproof.Lease) []serviceCleanupResult {
+func terminateSuiteServices(parent context.Context, lease leaseproof.Lease, env map[string]string) []serviceCleanupResult {
 	if lease.OwnershipMode == "attach" {
 		return nil
 	}
@@ -2718,7 +2750,7 @@ func terminateSuiteServices(parent context.Context, lease leaseproof.Lease) []se
 	}
 	defer cli.Close()
 	return terminateIndependentServices(parent, lease, func(ctx context.Context, service leaseproof.LeaseResource) error {
-		return terminateLeasedService(ctx, cli, lease, service)
+		return terminateLeasedService(ctx, cli, lease, service, env)
 	})
 }
 
@@ -2750,7 +2782,7 @@ func terminateIndependentServices(parent context.Context, lease leaseproof.Lease
 	return results
 }
 
-func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease leaseproof.Lease, service leaseproof.LeaseResource) error {
+func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease leaseproof.Lease, service leaseproof.LeaseResource, env map[string]string) error {
 	containers, err := leasedServiceContainers(ctx, cli, lease, service)
 	if err != nil {
 		return err
@@ -2760,6 +2792,9 @@ func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease
 	}
 	var errs []error
 	for _, containerID := range containers {
+		if service.Service == suiteservices.ServicePostgres {
+			recordPostgresFootprint(ctx, env, containerID, pgtest.ContainerMemoryPeakBytes)
+		}
 		_, err := cli.ContainerRemove(ctx, containerID, dockerclient.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,

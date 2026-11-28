@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -105,6 +106,9 @@ func (p *Production) services(ctx context.Context, request Request) (*Suite, err
 		options.ServiceDependencies = []string{"postgres"}
 		options.PostgresIsolation = request.PostgresIsolation
 		options.PostgresAllocation = key
+		// A generation never holds more memory than its resident claim charged
+		// (TH-HARNESS-REQ-804); admission ensured the claim before acquisition.
+		options.PostgresDataBytes = pgtest.GenerationDataBytes(p.Options.residency.memoryMB(key))
 		owner = &SuiteOwner{Acquire: options.StartSuite, ReleaseResidency: func(ctx context.Context) error {
 			return p.Options.residency.close(ctx, key)
 		}}
