@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), and the rest of P7-5 is replanned (16.13). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1404,6 +1404,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-3 / G59 | Post-graph time measured after G56 to G58; `ci` projected from its retained composition; no remedy needed | `p7-0-split-check`, `p7-2-check01`, `p6-6-ci04` | `check` 11.1 to 4.5 s outside the graph; `ci` projected 30 to about 6 s, confirmed in P7-6 (16.10) |
 | 2026-11-27 | P7-4 / G60, G64 | Look-ahead reservation over the whole need chain; estimates refreshed from current runs; pool-aware rank (D42); the entry producer's records declared | `p7-4-check01` to `-check03`, `p7-4-ci01`, `-ci02` (cancelled), `-ci03`, segments | `check` 477 s graph (483 s outer); `ci` 1,219 s graph, first cohorts at 5.8 s (16.11) |
 | 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
+| 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Proposed; awaiting the owner's decisions (16.13) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6731,3 +6732,254 @@ receipt gives the scan interval, and file times give the publication phases.
     this `ci`-only test; that is the P6-3 lesson again.
   - All of `ci`'s 502 other units passed in a 1,167 s graph, under the
     1,200 s target for the first time.
+
+### 16.13 P7-5 Continuation Plan — Memory Accounting, Slots and Lanes
+
+Status: proposed 2026-11-28 after G62. It replaces the rest of P7-5 (16.3)
+and keeps G61 at its end.
+
+#### Findings
+
+- **Where the disk actually cost time.** The run summaries split `check`
+  wall time into fixture acquisition, which creates each unit's database
+  clone, and test execution:
+
+  | | Disk (`p7-5-base-check01`) | tmpfs (`p7-5-check01` / `-check02`) |
+  | --- | ---: | ---: |
+  | Fixture acquisition | 104 s | 76 / 73 s (−28%) |
+  | Test execution | 376 s | 370 / 354 s (−2 to −6%) |
+  | PostgreSQL unit-seconds | 3,689 | 3,402 / 3,266 |
+  | Graph | 481 s | 447 / 428 s |
+
+  - The clone copy and its flush were the disk-bound part, and the tmpfs
+    removed most of it.
+  - The tests themselves are bound by round trips, polling and timeouts.
+    Late in `check`, eight PostgreSQL units run on 3 to 7 busy cores.
+  - The 85% disk utilization of 16.1 was mostly background write-back that
+    no test waited on.
+- **The memory charge is the next limit.**
+  - Each generation is charged 4,352 MB, 2.6 times its use: eight are
+    charged 34.8 GB against a measured tmpfs peak of 13.3 GB across all
+    eight.
+  - In `p7-5-ci01` memory blocks 1,030 wait records, every one alongside a
+    PostgreSQL resource.
+  - At ten generations (`p7-5-gen10-check01` and `-check02`, slots and
+    object-store lanes raised to 10 by override) memory blocks 343 waits per
+    run, so only nine slots fill. `build_server` then waits about 85 s, and
+    a heavy unit that needs the server binary runs its 90 s last.
+  - The graph is 420 and 424 s, against 427 to 446 s at eight, while
+    fixture acquisition rises from about 75 to 96 s.
+- **`check` is bound by its slots, not by hardware.** 3,266 unit-seconds
+  over eight slots is about 408 s, against a 428 s graph. P4-1's finding
+  that ten slots gained nothing was measured while the disk was the limit.
+- **CPU accounting is as designed, at eight.** 19 tokens on 24 CPUs is the
+  policy's 25% margin (`capacity.go`). PostgreSQL and object-store servers
+  are charged no tokens and run in that margin, which holds at eight
+  generations; at more, it needs measuring.
+- **Other disposable data still on disk.**
+  - The object store (SeaweedFS `-dir=/data`, `owned_store.go`) is the same
+    pattern, and its pool is near-binding in `ci`: about 995 s of work over
+    eight lanes.
+  - Direct-owner PostgreSQL suites (recovery, migrations, process tests)
+    keep disk volumes.
+  - Browser temporary data (Chromium profiles, Playwright output) is
+    unmeasured.
+- **Not worth moving.** The Go build cache is persistent and already in the
+  page cache; Go test temporary work is already in `/dev/shm` (G28); run
+  roots are 48 to 68 MB.
+
+#### Gaps
+
+| Gap | Problem | Areas | Severity |
+| --- | --- | --- | --- |
+| G65 | A generation is charged its whole 4 GiB cap, 2.6 times its use, so memory caps generations and lanes before the hardware does | Specification, implementation, topology, tests | High |
+| G66 | The generation count (8) comes from a disk-bound measurement; `check` is now bound by it | Measurement, capacity policy, specification | High |
+| G67 | Service CPU (PostgreSQL, SeaweedFS) is uncharged and lives in the 25% margin, untested beyond eight generations | Measurement; capacity policy if needed | Medium |
+| G68 | Object-store data sits on disk, and its pool is near-binding in `ci` | Specification, implementation, topology, tests | Medium |
+| G69 | Direct-owner PostgreSQL suites keep disk volumes without a per-suite reason | Audit; implementation if material | Low |
+| G70 | Browser temporary data's disk cost is unmeasured | Measurement | Low |
+
+##### G65 Memory charge sized to the workload
+
+- **Remediation.**
+  - Size each generation's tmpfs by its resident profile, and charge
+    exactly that size plus the server budget, so the charge stays an upper
+    bound on use and admission never overcommits.
+  - Profiles follow the resident kinds the planner already distinguishes: a
+    unit generation for a `postgres_heavy` unit, a unit generation for any
+    other unit, the shared generation, and browser-stack and measurement
+    generations.
+  - Each profile's size is its measured peak times at least 1.5, rounded up
+    to 512 MB. The 4 GiB cap stays for heavy units.
+  - The topology names one PostgreSQL claim per profile. The planner picks
+    the profile's claim for each resident, and the broker request carries
+    the size, so the tmpfs and the charge come from one value.
+- **Areas.** The REQ-804 seed paragraph and the topology's
+  `physical_resource_claims`; the planner's resident construction
+  (`compile.go`, `browser.go`); the fixture request and `testservices`;
+  `pgtest`; the claim test; a per-profile size sampler.
+- **Rationale.** Charging the cap was the safe first step, and it held: no
+  OOM, at least 19 GB available. The claim is an admission fact, so it must
+  bound real use, but not by 2.6 times.
+  - Charging an expected size under one large cap (16.12's paused option)
+    would make claims smaller than possible use. Admission would stop being
+    a bound, and a growing suite would find out through host memory
+    pressure.
+  - Per-unit observed sizes, refreshed like the work estimates, would be the
+    most exact. But they add a new observation channel and couple claims to
+    history, and an outgrown estimate fails a run. Profile sizes hold most
+    of the gain with a few reviewable numbers. Per-unit sizing can be added
+    later without changing the profile contract.
+- **Long-term benefit.** Memory admission reflects reality. More
+  generations, lanes and object stores can share the host without
+  overcommit, and a profile that grows is resized in one reviewed place.
+- **Compatibility and migration.** Claims shrink for all but heavy units. A
+  generation that outgrows its profile fails with a clear disk-full error,
+  which names the profile to resize. No schema version changes; the
+  topology gains named claims.
+- **Risks if unresolved.** Memory blocks the next slots and lanes (343
+  memory-blocked waits at ten) and wastes the larger host.
+- **Validation.**
+  - A sampler measures each generation's peak with its profile, on one
+    `check` and one `ci`, before any size is chosen.
+  - After the change, the same runs show no disk-full failure, every peak
+    under its size, and memory-blocked waits near zero at eight
+    generations.
+  - A claim test ties each profile's topology claim to its broker size.
+
+##### G66 Generation count by measurement
+
+- **Remediation.** After G65, measure 8, 10 and 12 generations, raising
+  PostgreSQL and object-store lanes with them, on paired `check` runs and
+  one `ci`. Adopt the best count through a gate:
+  - `check` wall time, PostgreSQL unit-seconds and fixture acquisition;
+  - minimum available memory at least 8 GB, and no OOM;
+  - CPU pressure no worse than at eight;
+  - no new failures.
+
+  The count changes in the scheduler resource registry's defaults and in
+  the spec's capacity table.
+- **Areas.** Measurement; `tools/scheduler_resource_registry.json`; the
+  capacity section of the spec.
+- **Rationale.** `check` is slot-bound (about 408 s of work over eight
+  slots). The ten-slot pair already shows a small gain even with memory
+  blocking the tenth slot.
+- **Long-term benefit.** The count follows the host's real limits, and the
+  gate says how to revisit it when the host changes.
+- **Compatibility and migration.** Defaults only. Smaller hosts keep fewer
+  generations through the existing CPU-bounded policy maximum.
+- **Risks if unresolved.** `check` stays near 430 s with idle hardware.
+- **Validation.** The gate above at each count; the adopted count's pair
+  repeats within ±15 s.
+
+##### G67 Service CPU accounting
+
+- **Remediation.** Record each service container's CPU (the samples
+  already carry `container_cpu_us`) at every count G66 measures. If the
+  services' combined CPU exceeds the margin under load, either charge each
+  generation resident CPU, or derive the margin from the service count,
+  whichever the data favors. Otherwise record the headroom and leave
+  accounting unchanged.
+- **Areas.** Measurement; the capacity policy only if the margin fails.
+- **Rationale.** Uncharged service CPU is sound only while it fits the
+  margin, and more generations shrink that slack.
+- **Long-term benefit.** CPU tokens stay a true bound as service counts
+  grow.
+- **Compatibility and migration.** None unless the charge is added, which
+  then lowers token use by units slightly.
+- **Risks if unresolved.** CPU oversubscription at higher counts would show
+  up as unexplained slowdowns.
+- **Validation.** The service CPU share at each count is recorded; the
+  adopted count leaves the margin unexceeded.
+
+##### G68 Object store in memory
+
+- **Remediation.**
+  - Measure first: SeaweedFS block writes, and the share of object-store
+    unit time in `ci`.
+  - Then mirror G62: a broker object store keeps `-dir` on a tmpfs sized by
+    measurement, charged in its resident claim, and its durability flags are
+    unchanged.
+  - Stores that a test restarts, and the SeaweedFS compatibility and
+    release-gate instances, which test persistence, stay on disk after a
+    per-suite audit.
+- **Areas.** The object-store paragraphs of the spec; `s3test` and
+  `testservices`; the topology's `object_store` claim; tests.
+- **Rationale.** The same disposable-data argument as G62, on a pool that is
+  near-binding in `ci`.
+- **Long-term benefit.** The second shared service stops depending on the
+  disk.
+- **Compatibility and migration.** It takes the larger object-store claim
+  from G65's memory budget; no interface changes.
+- **Risks if unresolved.** The object-store pool may bound `ci` once lanes
+  rise.
+- **Validation.** A gate like G62's on one `ci`: object-store unit time,
+  available memory, no OOM, and the SeaweedFS gates still passing on their
+  disk instances.
+
+##### G69 Direct-owner clusters
+
+- **Remediation.** Audit each direct `pgtest.StartOwned` owner for a
+  container restart, and measure the owners' share of `check` and `ci`. If
+  it is at least 5% of either command's wall time, move the owners that
+  never restart to the memory medium through the same `StartOptions`.
+- **Areas.** Audit; the owning tests.
+- **Rationale.** The medium should follow from whether data must survive,
+  not from which API started the cluster.
+- **Long-term benefit.** One rule for every cluster.
+- **Compatibility and migration.** Per suite.
+- **Risks if unresolved.** Small; these are few rows.
+- **Validation.** The audit table; moved suites pass alone and in a
+  `check`.
+
+##### G70 Browser temporary data
+
+- **Remediation.** Profile browser and renderer write volume and I/O
+  pressure in G68's `ci`. Act only if browser temporary I/O accounts for at
+  least 5% of cohort time.
+- **Areas.** Measurement.
+- **Rationale.** Unmeasured; a change before measuring would be a guess.
+- **Long-term benefit.** It closes the last unmeasured disk path.
+- **Compatibility and migration.** None.
+- **Risks if unresolved.** Low.
+- **Validation.** The measurement is recorded, with a decision.
+
+#### Workstreams
+
+| Step | Work | Depends on | Exit |
+| --- | --- | --- | --- |
+| P7-5b | Measure: generation peak per profile, service CPU, object-store and browser I/O, direct-owner share; one diagnostic `check` and one `ci` | — | Numbers recorded here |
+| P7-5c | G65: profile-sized generations; spec, topology, planner, broker, tests | P7-5b | G65 validation on segments, a `check` pair and one `ci` |
+| P7-5d | G66 and G67: 8, 10 and 12 generations through their gate | P7-5c | Count adopted or kept, with its evidence |
+| P7-5e | G68: object store in memory, through its gate | P7-5b, P7-5c | G68 validation |
+| P7-5f | G61: browser lanes 5 and 6 through their gate (D41) | P7-5d, P7-5e | Lane default adopted or kept |
+| P7-5g | G69 and G70, only where P7-5b shows a material share | P7-5b | Audit and measurement recorded |
+| P7-6 | Validation and handoff, as in 16.3 | All | Section 9 protocol passes |
+
+- **Order.** Measurement first, because every later size and gate depends
+  on it. G65 before G66, because memory blocks the slots that G66
+  measures. G68 before G61, because lanes compete with the object store for
+  memory and lanes.
+- **Risks by step.**
+  - **P7-5c.** A profile sized from one run can be too small; the 1.5
+    margin, the disk-full failure that names its profile, and the `ci` in
+    the gate bound that.
+  - **P7-5d.** More generations raise fixture contention (96 s at ten
+    against 75 s); the gate counts fixture acquisition.
+  - **P7-5e.** A suite that restarts its store loses data on tmpfs; the
+    audit comes first.
+  - **P7-5f.** Lanes compete for CPU with the PostgreSQL pool in `ci`
+    (CPU's bound is about 1,050 s); the 15% per-cohort limit catches it.
+- **Protocol.** Section 9 and 16.4 apply. Every step runs the `ci`-only
+  suites it touches before any full run, including `harness-contract
+  SUITE=contract`, which P7-5a missed.
+
+#### Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D43 | Generation memory charge | Size by resident profile from measured peaks with a 1.5 margin, and charge exactly that size; no overcommit. Rejected: expected-size charges under one 4 GiB cap (admission stops bounding use), and per-unit observed sizes (more exact, but a new observation channel; it remains a later option). |
+| D44 | Generation count | Measure 8, 10 and 12 after D43 and adopt through G66's gate; keep 8 until it passes. |
+| D45 | Service CPU | Charge it only if G67's measurement shows the margin exceeded. |
+| D46 | Object store | Move broker stores to tmpfs through G68's gate; restarting suites and SeaweedFS gate instances stay on disk. |
+| D47 | Direct owners and browser data | Measure first; act only at 5% or more of a command's wall time. |
