@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), and the rest of P7-5 is replanned (16.13). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-28. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), the rest of P7-5 is replanned (16.13), P7-5b to P7-5d are done (16.14 to 16.18), and P7-5e closed without a change; P7-5f, P7-5g and P7-6 remain. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1410,6 +1410,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | P7-5c / G67 | Browser cohorts claim their renderer core; analyzer profiles claim and cap their cores; gosec runs through a single-load driver on gosec v2.30.0; a stale launcher defers a registry it rejects | `p7-5c-ci03` (measurement), parity runs, 13 targeted segments and the three analyzer targets | Pass; targeted only, at the owner's direction (16.16) |
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
 | 2026-11-28 | P7-5d / G66, G67 | 10 and 12 generations by override; ledger CPU and process CPU sampled; two defects found (G71, G72) | `p7-5d-gen10-check01`, `-check02`, `p7-5d-gen12-check01`, `-check02`, `p7-5d-gen10-ci01`, `p7-5d-pins-rel`, `-none` | Ten: `check` 435 to 405 s, `ci` unchanged; twelve gains nothing; margin holds; eight kept (D50, 16.18) |
+| 2026-11-28 | G73 | Spec capacity rows repaired: the `postgres_generation` resource and `postgres_generations` capacity, registry v10, snapshot and override v2, eight PostgreSQL lanes, REQ-803's resident claim; P7-5e closed without a change (G68, 16.14) | `make lint-markdown` | Documentation only |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6742,6 +6743,10 @@ receipt gives the scan interval, and file times give the publication phases.
 
 Status: proposed 2026-11-28 after G62; D43 to D47 approved as recommended
 the same day. It replaces the rest of P7-5 (16.3) and keeps G61 at its end.
+P7-5b to P7-5d are done (16.14 to 16.18). P7-5e closed without a change:
+P7-5b measured that the disk does not limit the object store (G68, 16.14),
+and P7-5d's ten object-store lanes halved its blocked wait time without
+moving `ci`.
 
 #### Findings
 
@@ -7237,7 +7242,8 @@ following its largest test.
 Status: measured 2026-11-28. D50 declined by the owner the same day: eight
 generations stay, because `ci` gains 9 s for 2 to 3 GB less available
 memory. D51's heavy-lane measurement at ten generations lapses with it. The
-spec's stale capacity rows, part of D50's recommendation, remain open as G73.
+spec's stale capacity rows, part of D50's recommendation, were recorded as
+G73 and repaired the same day.
 
 Diagnostic `check` pairs ran at 10 and 12 generations, alternating, with
 PostgreSQL and object-store lanes raised with them by capacity override;
@@ -7326,7 +7332,7 @@ slightly overstates physical holds.
 | --- | --- | --- | --- |
 | G71 | The run summary's resource pressure holds physical claims until the terminal event, after the host lease is released, so peak use reads above capacity and saturation is overstated | Specification, implementation, tests | Medium |
 | G72 | A nested Make in a scratch copy inherits the caller's capacity override, so a relative override fails `assurance_toolchain_pins` | Implementation, tests | Low |
-| G73 | The spec's capacity rows are stale since P4-5: no `postgres_generation` resource or `postgres_generations` row, the registry named v8 (it is v10), the snapshot and override schemas named v1 (they are v2), and sixteen PostgreSQL lanes (the default is eight) | Specification | Low |
+| G73 | The spec's capacity rows are stale since P4-5: no `postgres_generation` resource or `postgres_generations` row, the registry named v8 (it is v10), the snapshot and override schemas named v1 (they are v2), and sixteen PostgreSQL lanes (the default is eight) | Specification | Low (repaired 2026-11-28) |
 
 #### Decisions
 

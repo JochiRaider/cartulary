@@ -488,10 +488,10 @@ Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170, TH-HARNESS-AC-175, TH-HARNESS
 Physical allocations MUST retain resident capacity until exact cleanup proves
 release. Logical borrowers reserve only their additional active claims; the same
 allocation MUST NOT be charged twice. A borrower's active `postgres` claim and
-its generation's resident `postgres` claim are distinct: the first bounds
-concurrent PostgreSQL work, the second the clusters kept on the host's storage,
-and the default lane count is calibrated for both. Resident claims do not authorize
-`host_activity`. Acquisition, execution, reset, health inspection and cleanup
+its generation's resident `postgres_generation` claim are distinct: the first
+bounds concurrent PostgreSQL work against PostgreSQL lanes, the second the
+clusters kept resident on the host against PostgreSQL generations. Resident
+claims do not authorize `host_activity`. Acquisition, execution, reset, health inspection and cleanup
 require active admission through the existing native owner. Owner-process death
 alone MUST NOT retire a resident container reservation. Allocation identity and
 durable recovery proof MUST survive until settlement. Admission transactions
@@ -4820,8 +4820,8 @@ claim publication.
 | `cartulary.tool_run_summary.v5`                 | `tools/schemas/cartulary.tool_run_summary.v5.schema.json`                 | present           | Centralized wrappers     | Before wrapper exits.                     |
 | `cartulary.harness_work_graph.v10`              | `tools/schemas/cartulary.harness_work_graph.v10.schema.json`              | present           | Go planner               | Before any child work.                    |
 | `cartulary.harness_runtime_plan.v10`            | `tools/schemas/cartulary.harness_runtime_plan.v10.schema.json`            | present           | Go planner               | Before publication and retained reads.    |
-| `cartulary.harness_capacity_override.v1`        | `tools/schemas/cartulary.harness_capacity_override.v1.schema.json`        | present           | Capability capture       | Before applying a caller override.        |
-| `cartulary.harness_capability_snapshot.v1`      | `tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json`      | present           | Capability capture       | Before scheduler admission.               |
+| `cartulary.harness_capacity_override.v2`        | `tools/schemas/cartulary.harness_capacity_override.v2.schema.json`        | present           | Capability capture       | Before applying a caller override.        |
+| `cartulary.harness_capability_snapshot.v2`      | `tools/schemas/cartulary.harness_capability_snapshot.v2.schema.json`      | present           | Capability capture       | Before scheduler admission.               |
 | `cartulary.harness_cache_record.v2`             | `tools/schemas/cartulary.harness_cache_record.v2.schema.json`             | present           | Graph cache              | Before reuse or retained publication.     |
 | `cartulary.harness_fixture_lease.v5`            | `tools/schemas/cartulary.harness_fixture_lease.v5.schema.json`            | present           | Fixture broker           | Before lease use or cleanup.              |
 | `cartulary.harness_run_manifest.v3`             | `tools/schemas/cartulary.harness_run_manifest.v3.schema.json`             | present           | Graph runner             | Before scheduler admission.               |
@@ -5249,8 +5249,8 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 **TH-HARNESS-REQ-277**
 The required current graph and evidence schema attachments are
 `cartulary.harness_work_graph.v10`,
-`cartulary.harness_capability_snapshot.v1`,
-`cartulary.harness_capacity_override.v1`,
+`cartulary.harness_capability_snapshot.v2`,
+`cartulary.harness_capacity_override.v2`,
 `cartulary.harness_cache_record.v2`,
 `cartulary.harness_fixture_lease.v5`,
 `cartulary.harness_run_manifest.v3`,
@@ -6904,12 +6904,12 @@ closed by TH-HARNESS-REQ-353.
 Resource claims distinguish CPU, memory, I/O, processes, volumes, ports,
 service capabilities, and browser-stack leases. Fixture isolation is expressed
 by fixture capability and broker lease rather than clone/reset scheduler
-families. A caller override is accepted only through the v1 capacity-override
+families. A caller override is accepted only through the v2 capacity-override
 schema and only when every graph claim remains feasible.
 
 **TH-HARNESS-REQ-353**
 The logical resource registry is closed by the table below.
-`tools/scheduler_resource_registry.json` is the v8 typed projection of this
+`tools/scheduler_resource_registry.json` is the v10 typed projection of this
 current-conformance registry and MUST NOT independently add resources, change
 bounds, change override inputs, or redefine automatic policies. Capacity
 resolution MUST interpret that typed projection; hard-coded fallback
@@ -6923,16 +6923,16 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030
 | `io` | host I/O allowance | token | fail safe to one |
 | `process` | effective process limit | slot | fail safe to one |
 | `volume` | writable-volume proof | capability | unavailable when unproven |
-
 | `port_lane` | broker port-lane inventory | lane | fail safe to one |
 | `postgres` | service readiness | capability | unavailable when unready |
+| `postgres_generation` | service readiness | capability | unavailable when unready |
 | `postgres_heavy` | authored heavy-PostgreSQL concurrency policy | lane | fail safe to one |
 | `object_store` | service readiness | capability | unavailable when unready |
 | `service_stack` | managed-stack readiness | capability | unavailable when unready |
 | `browser_stack` | broker browser-stack capacity | lease | fail safe to one |
 
 The capacity policy projection is closed as follows. Positive integral
-overrides remain subject to the v1 override schema and to the host bounds below.
+overrides remain subject to the v2 override schema and to the host bounds below.
 
 | Snapshot field | Automatic policy | Bound |
 | --- | --- | --- |
@@ -6940,7 +6940,8 @@ overrides remain subject to the v1 override schema and to the host bounds below.
 | `memory_bytes` | Minimum of the positive cgroup bound and host memory when both exist; otherwise the positive available value. | Minimum `1`. |
 | `process_slots` | The effective operating-system process limit (the smaller of the soft per-user process limit and a positive cgroup `pids.max`) with a 25 percent safety margin; four times CPU tokens when no process limit is available. Process slots bound concurrent operating-system processes, including idle resident service processes; CPU contention is bounded by `cpu_tokens`. | Minimum `1`. |
 | `io_tokens` | Two times CPU tokens. | Minimum `1`. |
-| `postgres_lanes` | Sixteen lanes by default. | Minimum `1`; at most CPU tokens. |
+| `postgres_lanes` | Eight lanes by default. | Minimum `1`; at most CPU tokens. |
+| `postgres_generations` | Eight resident generations by default. | Minimum `1`; at most CPU tokens. |
 | `postgres_heavy_lanes` | Four lanes by default (three until the G34 re-test of 2026-11-25). | Minimum `1`; at most PostgreSQL lanes. |
 | `object_store_lanes` | Eight lanes by default. | Minimum `1`; at most CPU tokens. |
 | `port_lanes` | Thirty-two lanes by default, including resident listeners. | Minimum `1`; at most twice CPU tokens. |
