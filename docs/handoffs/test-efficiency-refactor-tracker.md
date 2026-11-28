@@ -7093,6 +7093,26 @@ the generation's `tmpfs` come from one value, so admission still bounds use.
   of that time is spent at full CPU. CPU tokens cover test processes only,
   so resident PostgreSQL servers and browser stacks use cores on top of the
   19 tokens (G67).
+- **Redaction test.** The linearity cases now bound the redacting thread's
+  CPU time (about 2.5 s idle against 5 s), not wall time; three mixed-load
+  repetitions passed.
+- **Measured `ci` (G67).** `p7-5c-ci03` passed (1,182 s graph) with host,
+  container and pressure samplers, and its footprints were folded: 458 rows
+  observed, and unit-generation claims fall from 426,496 to 121,600 MB in
+  `ci` (median 768 MB; the eight largest 29,184 MB).
+  - Services used 4.9 cores on average (p90 6.5, maximum 11.1), above the
+    5-core margin in 136 of 233 intervals. Renderers are 3.7 of that, about
+    one core per running browser cohort (p90 1.3); PostgreSQL 1.2 across
+    seven or eight generations; the object store 0.1.
+  - The host was not oversubscribed: 11.8 busy cores on average (p90 16.0,
+    maximum 21.7 of 24, 8 performance and 16 efficiency cores), CPU pressure
+    9% on average. Units held all 19 tokens half the time while using far
+    less.
+  - Pressure passed 30% in 8 of 233 intervals, all in the first 260 s. The
+    worst (63 to 80%, 21 busy cores) came as both `gosec` operations
+    started beside four browser cohorts and two Vitest units. Each `gosec`
+    and `govulncheck` operation claims one token but analyzes the program
+    on every core.
 - **Gate (pending).** One `check` and one `ci` record footprints;
   `estimate-refresh` folds them; then a `check` pair and one `ci` on sized
   claims must show no disk-full failure, every peak under its capacity and
