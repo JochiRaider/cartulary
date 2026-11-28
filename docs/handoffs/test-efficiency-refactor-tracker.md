@@ -5701,3 +5701,345 @@ declared public, product or operator input.
     artifact assurance, the UI-review contract, both seeded review profiles
     and the native fixture lifecycle; and one evidence and one timeline
     browser row on a real stack.
+
+## 17. Phase 8 Plan — Change Cost and Phase 7 Residuals
+
+Status: proposed 2026-11-28 at the owner's request; no decision recorded yet
+(17.5). It covers what the Phase 7 handoff (P7-6) left open: the everyday
+`check` after a product change (G63), the cause behind G74, the
+`authoring-candidates` browser race and the `ci` ceiling.
+
+**Provisional numbering.** This section was written at `7b7f2193b`, before
+the Phase 7 commits reached the remote. It assumes Phase 7 is Section 16 and
+ended at G74. Section, gap and decision numbers, the status paragraph, the
+gap register and Section 3 are reconciled when this section is rebased onto
+Phase 7 (P8-0). Phase 7 figures quoted below come from the P7-6 report, not
+from this checkout.
+
+### 17.1 Findings
+
+Measured on 2026-11-28 at `7b7f2193b` without running the harness. An
+import-graph script applied the planner's closure rule (`packageDirectories`
+in `harnessplan/cache.go`: every Go file of a selected package, the non-test
+files of each imported one). Row work comes from
+`tools/harness_work_estimates.json`. The figures are estimates; P8-3 replaces
+the script with the planner itself.
+
+- **G63 is not a key problem.**
+  - **P7-6.** An unchanged `check` takes 63 s. After a one-line comment in
+    `internal/modules/assessments/create_service.go` it takes 391 s, and 137
+    of the 304 cacheable Go units run again.
+  - **No module imports `assessments`.** Its only importers are seven
+    `internal/app/*assembly` packages, its own `admission` package and
+    `internal/testutil/appsupport`. The module boundaries hold.
+  - **The whole server is what reaches it.** 50 of 234 Go test packages hold
+    `assessments` in their closure. 40 of them reach `internal/app/server`,
+    whose closure holds 32 of the 33 module root packages, all but
+    `codegenboundary`. Its `runtime_assembly.go` is 2,413 lines.
+  - **Closures are bimodal.** The median test package's closure holds 13
+    repository packages. 50 test packages hold more than 200 of 486.
+  - **Those 50 packages hold most of the work.** 892 of 1,332 Go rows, 3,768
+    of 4,728 s of estimated Go row work (80%) and 3,524 of 3,752 s of
+    service-backed row work (94%).
+  - **Every module is alike.** An edit to any module root package invalidates
+    3,723 to 4,560 s of the 4,728 s (median 3,849 s). The table shows ten of
+    the 32.
+  - **Most product code is in module roots.** 170,012 of 250,804 module
+    source lines (68%) are in a module's root package, so most product edits
+    land there.
+  - **The keys are exact.** The closure rule is the specification's
+    unit-aware closure paragraph, and the tests do link and start the whole
+    server. 13.13 recorded the same cause: a module's root package reaches
+    120–177 units "because test support assembles the whole application".
+  - **Splitting the shared helpers gains nothing.** With `appsupport` and
+    `httptestx` given no `internal/app` or `internal/modules` import, 47 of
+    the 50 packages and 3,767 of the 3,768 s still reach `assessments`. Six
+    module test packages import `internal/app/server` themselves, and
+    owner-local support packages import the assemblies.
+  - **The modules themselves are narrow.** A module root's own closure holds
+    0 to 13 other module roots: 15 hold none, and `networkflow` holds 13. The
+    assemblies hold 4 to 29 (`referenceassembly` 21, `recoveryassembly` 29).
+  - **Ceiling.** If each module's test packages depended only on what its
+    module root imports, and app-level packages kept the whole server, the
+    median module-root edit would invalidate 975 s instead of 3,849 s. 591 s
+    of that is the app-level floor: `serverprocess` 416 s, `server` 92 s and
+    `operator` 36 s. This is an upper bound on the gain, not a forecast.
+  - **The target's premise failed.** 13.4 (G35) expected the median product
+    change to run "about 700 s of service work instead of 7,095 s", about
+    10%. For a module-root edit it is 94%. 13.13's replay found a median of 6
+    of 313 units across nine product-only commits, so the two change classes
+    differ by an order of magnitude and one "median product change" figure
+    describes neither.
+
+  | Changed module root | Invalidated now | Ceiling |
+  | --- | ---: | ---: |
+  | `database_migrations` | 4,560 s | 1,161 s |
+  | `incidentportability` | 4,019 s | 2,663 s |
+  | `records` | 4,018 s | 2,120 s |
+  | `revisions` | 4,016 s | 2,569 s |
+  | `reference_data` | 4,016 s | 2,026 s |
+  | `networkflow` | 3,930 s | 988 s |
+  | `reporting` | 3,797 s | 970 s |
+  | `assessments` | 3,768 s | 597 s |
+  | `auth` | 3,763 s | 771 s |
+  | `viewschemas` | 3,723 s | 550 s |
+
+- **G74's cause is an unscoped read.**
+  - Each unit's summary computes its timing spans by loading every journal
+    under `_shared/test-services/*/journals/` of the run
+    (`loadServiceJournalEvents` in `services/journal-reader.mjs`) and then
+    keeping the events whose `details.target` is its own
+    (`loadServiceTimingSpans` in `output/test-output/timing.mjs`).
+  - It does so twice per summary, once for lifecycle spans and once for
+    janitorial spans (`target-summary.mjs`). Each journal is read whole, up
+    to 64 MiB.
+  - A unit with no services therefore reads every other unit's live
+    journals. That is how `frontend_import_boundary_check` failed in P7-6
+    although its own check passed. The cost grows with units × journals.
+  - `diagnostics/fixture-reporting.mjs` makes the same whole-run read with an
+    optional target filter.
+  - Journals are already laid out by owner:
+    `_shared/test-services/<suite id>/journals/<producer>.ndjson`
+    (`ResolveSuiteArtifactDir` in `suiteservices/env.go`).
+  - P7-6's fix (`654d908f5`, not in this checkout) reads a journal as it
+    stood when opened. That makes the read safe. It does not make it scoped.
+- **G74 coverage.** The fix landed after P7-6's paired runs. Its regression
+  test and targeted rows cover it; no full run does.
+- **The `ci` ceiling.** P7-6's paired `ci` took 1,194 s and 1,190 s against
+  the 1,200 s target. Every setup measured landed between 1,173 and 1,194 s,
+  with CPU tokens, browser lanes and PostgreSQL generations binding in turn.
+  Section 3 records ±60 s between single `ci` runs, so the 6 to 10 s margin
+  is inside run-to-run variation, and no single capacity is the limit.
+- **The browser race.** P7-6 offered `apps/web/e2e/authoring-candidates.spec.ts`
+  as a separate task. The file holds 20 tests in 1,935 lines. Its failure
+  record is in Phase 7 and was not seen here.
+
+### 17.2 Gaps
+
+| ID | Gap | Areas | Workstream | Priority |
+| --- | --- | --- | --- | --- |
+| G63 | Restated: after an edit to any module root package, `check` runs about 80% of Go test work again, because every module's integration tests link and start the whole server. The 300 s target assumed 10% | Measurement, product composition, test support | P8-3, P8-4 | High |
+| G75 | A unit's summary reads every service journal in the run, twice, and filters by target. A unit depends on files it does not own (the cause of G74), and the cost grows with units × journals | Implementation, tests | P8-2 | Medium |
+| G76 | A race in `authoring-candidates.spec.ts` fails a browser row under load | Tests or product | P8-1 | Medium |
+| G77 | `ci` meets its target only within run-to-run variation; three capacities bind in turn | Measurement, process | P8-5 | Low |
+
+#### G63 Change cost
+
+- **Remediation.** Three steps, each gated by the one before.
+  - **Measure without running (P8-3).** A change-impact report. For a set of
+    changed paths or a commit range, the planner lists the units whose input
+    digest changes, the rows they hold and their estimated work.
+    - `CacheFacts` is a pure function of the source snapshot, so the report
+      plans both sides and compares. No test runs.
+    - It is an option of `target-plan`, not a new public target.
+    - It is descriptive and never a gate, like the run comparison (REQ-865).
+  - **Restate the target (D-P8-1).** Replay the last 150 commits and a fixed
+    probe set through the report: a leaf package, a module root, a shared
+    module (`records`, `revisions`), a platform package, a test-support
+    package and a migration. Section 3's row becomes one figure per change
+    class.
+  - **Narrow what the tests link, not the key (P8-4, D-P8-2).** A pilot on
+    one module.
+    - Shared test support stops importing `internal/app/server`. It receives
+      the composition from its caller.
+    - Production builds the server from the same per-module pieces, so there
+      is one composition path. `cmd/server` and the whole-server tests pass
+      the full list.
+    - A boundary rule keeps shared test support from importing the full
+      composition again.
+    - The harness does not change. Keys narrow because imports do.
+    - **Candidate.** `reference_data`: 333 s of row work, and its module root
+      imports no other module. Its assembly holds 21 module roots, which is
+      what the pilot tests. `auth` (183 s, no cross-module import) is the
+      second choice.
+- **Not done.** The keys stay as the specification states them. No
+  comment-insensitive hash, no exported-API hash, no key built from observed
+  execution: each admits a stale pass, and 13.3 makes any doubt a miss.
+- **Areas.**
+  - P8-3: the planner, one option in the task surface owner, and tests.
+  - P8-4: product composition (`internal/app/server` and the assemblies),
+    `appsupport`, `httptestx`, the pilot module's tests and
+    `tools/backend_module_boundaries.json`. This is product-architecture
+    work. It follows the
+    [modular refactor planning framework](cartulary_modular_refactor_planning_framework.md);
+    this tracker owns only its measurement.
+- **Rationale.** The key is right and the dependency is real. Narrowing the
+  key would make the cache report results it did not prove. Narrowing the
+  dependency makes a module's result independent of unrelated modules.
+- **Long-term benefit.**
+  - A module's integration result stops depending on every other module's
+    source, and its test binary links less.
+  - The harness keeps one simple, exact key rule.
+  - Change cost becomes a planner output anyone can read before running.
+- **Compatibility and migration.**
+  - The report is additive.
+  - The pilot keeps row IDs. What the pilot module's integration rows mount
+    changes: other modules are absent. Whole-server wiring stays covered by
+    the `app/server`, `serverprocess` and browser rows. The module owner
+    approves this under 13.3's coverage constraint (D-P8-2).
+- **Risks if unresolved.** Every module-root edit costs a full `check`. The
+  target cannot be judged without a 400 s run per probe. Pressure builds to
+  weaken the keys.
+- **Validation.**
+  - **Report.** On the P7-6 probe it names the 137 units that run re-ran. A
+    documentation-only commit reports none. Its own cost is recorded.
+  - **Pilot.** In the report, an edit to an unrelated module root invalidates
+    none of the pilot module's units. The module's rows and the `app/server`
+    rows pass. Other plans are unchanged. Then the G63 pair of P8-6.
+
+#### G75 Unscoped journal reads
+
+- **Remediation.**
+  - A unit's summary reads only its own suite's journals,
+    `_shared/test-services/<suite id>/journals`. A unit with no suite reads
+    none.
+  - First confirm that a target's events are written only beneath its own
+    suite. If a shared producer writes another target's events, move the
+    write, not the reader's filter.
+  - Each summary reads once and derives both span sets.
+  - Whole-run readers, the fixture report and the run summary, run after the
+    graph drains.
+  - P7-6's prefix read stays, for a unit reading its own live journal.
+  - Audit the other `readLocalFile` callers for files another process may
+    still be writing (`browser/server-log-retention.mjs`,
+    `browser/browser-catalog-group-cli.mjs`).
+- **Areas.** Implementation and tests. The specification only if it
+  describes how journals are read.
+- **Rationale.** P5-4d's single-writer rule, applied to readers: a unit reads
+  what it owns.
+- **Long-term benefit.** A passing unit cannot fail on another unit's file.
+  Summary cost stops growing with the size of the run.
+- **Compatibility and migration.** Summaries hold the same spans. No schema
+  changes.
+- **Risks if unresolved.** Each unit reads and discards every other unit's
+  journals. The next shared file that is not append-only repeats G74.
+- **Validation.**
+  - A test with two suites shows a summary opening only its own journals,
+    and a unit without services opening none.
+  - The old and new readers give the same spans for every target of one
+    retained `check` root.
+  - The `output_accounting` row and a PostgreSQL-backed slice pass.
+
+#### G76 Browser race
+
+- **Remediation.**
+  - Reproduce with `make test-stress ROWS=<row> REPEAT=10 LOAD=<profile>`
+    before changing anything.
+  - Classify the wait as the 13.10 audit does: deadline-derived, an
+    observable-state wait, or justified.
+  - If a user could see the race in the page, it is a product defect and is
+    fixed in the owning module under its NLSpec. Otherwise the spec waits on
+    the state it asserts.
+  - No retry and no longer fixed timeout (13.3).
+- **Areas.** The spec file, or the owning module's frontend code.
+- **Rationale.** A load-dependent browser failure costs a `ci` run each time
+  it appears. Fixing it before P8-6 keeps that run for validation.
+- **Validation.** The row passes `REPEAT=10` under mixed load, the 13.10
+  gate.
+
+#### G77 The `ci` ceiling
+
+- **Remediation.**
+  - Stop tuning capacity. Record 1,173–1,194 s as the plateau for this host
+    and this work.
+  - Replace the target chase with a regression line: investigate when a
+    paired mean exceeds 1,260 s, the target plus Section 3's ±60 s.
+  - Read the host-pressure windows of the P7-6 `ci` runs. A joint raise of
+    the three capacities is proposed only if they show CPU, I/O and memory
+    headroom at once, and then only through the 13.7 gate.
+  - Any further gain comes from removing work on the browser chain, item by
+    item, when the owner asks for it.
+- **Areas.** Section 3 and this tracker. No code.
+- **Rationale.** Three limits binding in turn mean the host is balanced.
+  Capacity is a stability limit (13.3), and P4-7 passed 2 of 5 `ci` runs
+  while load exposed latent defects.
+- **Risks if unresolved.** Runs spent on a margin smaller than the noise. A
+  joint raise that brings back load-dependent failures.
+- **Validation.** The pressure reading and the restated Section 3 row are
+  recorded (D-P8-3).
+
+### 17.3 Workstreams
+
+| Step | Work | Depends on | Exit |
+| --- | --- | --- | --- |
+| P8-0 | Phase 7 on the remote; this section rebased onto it and renumbered; the P7-6 handoff's cause for G63 corrected; G75 to G77 registered | — | Numbers reconciled; `lint-markdown` passes |
+| P8-1 | G76: reproduce, classify, fix | — | `REPEAT=10` under mixed load |
+| P8-2 | G75: suite-scoped summary reads; whole-run readers after the graph; the reader audit | P8-0 (G74's fix) | 17.2 G75 validation |
+| P8-3 | G63: the change-impact report, the 150-commit replay and the probe set | P8-0 | The report matches the P7-6 probe; the replay is recorded here |
+| P8-4 | G63: the composition pilot on one module | P8-3, D-P8-1, D-P8-2 | 17.2 pilot validation; continue or stop recorded |
+| P8-5 | G77: the pressure reading, the plateau and the regression line | P8-0 | Section 3 restated |
+| P8-6 | Validation and handoff: paired cache-off `check`; the G63 pair (unchanged, then a module-root probe); one `ci`; Section 3 refreshed | P8-1, P8-2, and P8-4 if it ran | Section 9 protocol passes; the handoff written |
+
+P8-1, P8-2, P8-3 and P8-5 are independent and can run in any order. P8-4
+waits for the replay and two decisions, and may not run at all. If it
+continues past the pilot, each further module is its own step under the
+modular refactor framework, ordered by row work and by how few modules its
+root imports. It stops when the restated target is met or a module's gain no
+longer pays for its change.
+
+**Risks by step.**
+
+- **P8-2.** A shared producer writes one target's events beneath another
+  suite, so a scoped read loses spans. Mitigation: the old-against-new
+  comparison on a retained root runs before the old reader goes.
+- **P8-3.** The report disagrees with what a run re-runs. Mitigation: it
+  calls `CacheFacts` itself instead of a second rule, and the P7-6 probe is
+  its first test.
+- **P8-4.**
+  - Cross-module wiring the pilot module's tests relied on without declaring
+    it. Mitigation: the pilot's rows fail loudly on a missing mount, and the
+    whole-server rows keep covering the full wiring.
+  - Two composition paths. Mitigation: the pilot is accepted only if
+    production builds from the same pieces; otherwise it stops.
+  - A module whose assembly needs most other modules. Mitigation: the report
+    gives its gain before the change is written.
+- **P8-6.** The single `ci` meets an unrelated load-dependent failure.
+  Mitigation: diagnose it from its first occurrence (Section 3's rule), then
+  rerun only what the repair affects.
+
+### 17.4 Validation Protocol
+
+Section 9 applies.
+
+- **Each step.** Targeted rows in the run's exact configuration, then the
+  step's own validation. Machine-input changes add
+  `source-check CHECK=generated`.
+- **G74.** Its full-run coverage is folded into P8-6 (D-P8-4). A full run
+  cannot prove a race absent; the regression test does that. The runs show
+  only that nothing else broke.
+- **`ci`.** Once, in P8-6. Reason: the browser fix and journal reads under
+  browser load run only there.
+- **`release-check`.** Not run: no step changes release-only behavior. If
+  P8-2 changes a reader that a release row uses, that row runs alone first
+  (the release rule in 15.4).
+- **Markdown.** `lint-markdown` for every tracker change.
+
+### 17.5 Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D-P8-1 | State the G63 target per change class from the P8-3 replay, instead of one "median product change" | Approve |
+| D-P8-2 | Run the composition pilot, accepting that the pilot module's integration rows mount only what the module needs | Decide after P8-3. Approve if module-root edits are a material share of product commits. Needs the pilot module's owner |
+| D-P8-3 | Record the `ci` plateau and the 1,260 s regression line; no further capacity tuning without pressure evidence | Approve |
+| D-P8-4 | Fold G74's full-run coverage into P8-6 instead of dedicated runs | Approve |
+
+### 17.6 Rejected Alternatives
+
+- **A key that ignores comments or formatting.** It would have passed the
+  P7-6 probe and no real edit. Line numbers reach test output and panics, so
+  it is not exact either.
+- **A key from exported API.** Sound for compiling a dependant, not for a
+  test result, which depends on the imported package's behavior.
+- **A key from observed execution** (the packages a test ran). Package
+  initialization, reflection and schema effects escape it, and it needs a
+  second dependency model.
+- **A key from the linked test binary's digest.** Exact, but any real edit
+  changes the binary, and every run would link every binary before deciding.
+- **Splitting `appsupport` and `httptestx`.** Measured: no gain (17.1).
+- **A test-only composition.** Two owners for one wiring; the tests would
+  stop exercising what production runs.
+- **A `check` that selects rows by declared owner relationships.** A second
+  dependency model beside imports, and a pass that the next `ci` can
+  contradict.
+- **Raising the three `ci` capacities together without pressure evidence.**
+  13.3 and the P4-7 pass rate.
