@@ -1409,7 +1409,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | P7-5c / G65 gate | D49 shares recorded and folded; sized `check` pair and `ci` | `p7-5c-ci04` (recording), `p7-5c-check01`, `-check02`, `p7-5c-ci05` | Gate passed: no memory-blocked wait, no peak over claim, at least 22 GB available (16.15) |
 | 2026-11-28 | P7-5c / G67 | Browser cohorts claim their renderer core; analyzer profiles claim and cap their cores; gosec runs through a single-load driver on gosec v2.30.0; a stale launcher defers a registry it rejects | `p7-5c-ci03` (measurement), parity runs, 13 targeted segments and the three analyzer targets | Pass; targeted only, at the owner's direction (16.16) |
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
-| 2026-11-28 | P7-5d / G66, G67 | 10 and 12 generations by override; ledger CPU and process CPU sampled; two defects found (G71, G72) | `p7-5d-gen10-check01`, `-check02`, `p7-5d-gen12-check01`, `-check02`, `p7-5d-gen10-ci01`, `p7-5d-pins-rel`, `-none` | Ten: `check` 435 to 405 s, `ci` unchanged; twelve gains nothing; margin holds; adoption pending (16.18) |
+| 2026-11-28 | P7-5d / G66, G67 | 10 and 12 generations by override; ledger CPU and process CPU sampled; two defects found (G71, G72) | `p7-5d-gen10-check01`, `-check02`, `p7-5d-gen12-check01`, `-check02`, `p7-5d-gen10-ci01`, `p7-5d-pins-rel`, `-none` | Ten: `check` 435 to 405 s, `ci` unchanged; twelve gains nothing; margin holds; eight kept (D50, 16.18) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -7234,7 +7234,10 @@ following its largest test.
 
 ### 16.18 Generation Count and CPU Margin (P7-5d, G66, G67)
 
-Status: measured 2026-11-28; adopting the count awaits the owner (D50).
+Status: measured 2026-11-28. D50 declined by the owner the same day: eight
+generations stay, because `ci` gains 9 s for 2 to 3 GB less available
+memory. D51's heavy-lane measurement at ten generations lapses with it. The
+spec's stale capacity rows, part of D50's recommendation, remain open as G73.
 
 Diagnostic `check` pairs ran at 10 and 12 generations, alternating, with
 PostgreSQL and object-store lanes raised with them by capacity override;
@@ -7323,10 +7326,11 @@ slightly overstates physical holds.
 | --- | --- | --- | --- |
 | G71 | The run summary's resource pressure holds physical claims until the terminal event, after the host lease is released, so peak use reads above capacity and saturation is overstated | Specification, implementation, tests | Medium |
 | G72 | A nested Make in a scratch copy inherits the caller's capacity override, so a relative override fails `assurance_toolchain_pins` | Implementation, tests | Low |
+| G73 | The spec's capacity rows are stale since P4-5: no `postgres_generation` resource or `postgres_generations` row, the registry named v8 (it is v10), the snapshot and override schemas named v1 (they are v2), and sixteen PostgreSQL lanes (the default is eight) | Specification | Low |
 
 #### Decisions
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D50 | Generation count | Adopt ten generations, ten PostgreSQL lanes and ten object-store lanes as registry defaults, and repair the spec's capacity rows left stale by P4-5 (the `postgres_generation` resource, registry v10, snapshot and override v2, PostgreSQL lanes). Twelve is rejected: heavy lanes and CPU tokens bound it. |
+| D50 | Generation count | Adopt ten generations, ten PostgreSQL lanes and ten object-store lanes as registry defaults, and repair the spec's capacity rows left stale by P4-5 (the `postgres_generation` resource, registry v10, snapshot and override v2, PostgreSQL lanes). Twelve is rejected: heavy lanes and CPU tokens bound it. **Declined by the owner 2026-11-28: eight stays.** |
 | D51 | CPU margin | Keep 25%. Measure next where claims exceed use: browser cohorts at two tokens (renderer and runner) with P7-5f's lanes, and heavy lanes 5 and 6 at ten generations, the next `check` bound. |
