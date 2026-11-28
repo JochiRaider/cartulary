@@ -6029,6 +6029,17 @@ script that applies the planner's closure rule (`packageDirectories` in
   - No dynamic import: the closure scan must keep seeing every edge.
   - `services/fixture-attachment.mjs`, the other module launched this way,
     reaches 3 units and needs no change.
+- **Expected effect, from the import graph.**
+  - The test catalog and the performance fixture arrive through one edge:
+    the `browser` barrel exports `fixture-process.mjs`, which imports the
+    test catalog. The stop module uses only `recoverVisualRenderer` from
+    `browser/visual-renderer-lease.mjs`.
+  - Importing that module directly takes the closure from 67 modules to 31.
+    The 36 dropped are the 14 test-catalog, 13 performance-fixture, 5
+    browser, 3 runtime and 1 contract modules.
+  - Alone it frees 5 heavy commits over the history (2 of the last 150),
+    because the same commits touch registered inputs. Its gain shows after
+    G40: up to the 47 commits above.
 - **Areas.** `tools/harness/runtime`, `tools/harness/browser` and the
   import-boundary rules, plus tests.
 - **Rationale.** The key rule is right. The module depends on more than it
@@ -6059,8 +6070,8 @@ script that applies the planner's closure rule (`packageDirectories` in
 | P8-8 | Validation and handoff: paired cache-off `check`; the probe pair (unchanged, then a module-root edit); one `ci`; Section 3 refreshed | The steps that ran | Section 9 protocol passes; the handoff written |
 
 P8-1, P8-2, P8-3, P8-4 and P8-7 are independent and need no decision. P8-4
-is the smallest change with a measured gain. P8-5 carries the specification
-amendment and the largest gain. P8-6 waits for P8-5 and two decisions, and
+is the smallest change, one import, and pays off once P8-5 lands. P8-5
+carries the specification amendment and the largest gain. P8-6 waits for P8-5 and two decisions, and
 may not run at all. If it continues past the pilot, each further module is
 its own step under the modular refactor framework. It stops when the
 restated target is met or a module's gain no longer pays for its change.
