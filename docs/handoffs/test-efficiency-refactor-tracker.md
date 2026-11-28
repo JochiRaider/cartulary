@@ -5704,9 +5704,11 @@ declared public, product or operator input.
 
 ## 17. Phase 8 Plan — Change Cost and Phase 7 Residuals
 
-Status: proposed 2026-11-28 at the owner's request; no decision recorded yet
-(17.5). P8-3's measurement is done (17.7) and reorders the plan: the registered
-broad inputs (G40) come before the composition pilot. It covers what the Phase
+Status: proposed 2026-11-28 at the owner's request. D-P8-1 and D-P8-5 were
+approved by the owner the same day (17.5); D-P8-2 to D-P8-4 are open. P8-3's
+measurement is done (17.7) and reorders the plan: the registered broad
+inputs (G40) come before the composition pilot. P8-5 has its execution
+plan and half of its inventory (17.8); its code is not written. It covers what the Phase
 7 handoff (P7-6) left open: the everyday `check` after a change (G63), the
 cause behind G74, the `authoring-candidates` browser race and the `ci`
 ceiling.
@@ -5822,21 +5824,24 @@ script that applies the planner's closure rule (`packageDirectories` in
       declared per package.
   - **Declare.** `fixture_input_roots` already lets a row declare confined
     roots beneath `fixtures/`. The same declaration extends to run-time
-    input roots elsewhere in the repository. A Go row without a declaration
-    then holds no registered root.
+    input roots elsewhere in the repository, and a directory that code names
+    by a literal brings its subtree. A Go row then holds no registered root.
   - **Enforce by observation.** A Go test binary can log every file its
     process opens or stats (`-test.testlogfile`, the record `go test` keeps
     for its own result cache). The runtime requests the log for each Go
     unit. A unit whose log names a source-index path outside its closure
-    fails with a typed undeclared-input result that names the path.
+    fails, and its log names the path.
+  - **The check lands first, against today's keys.** 19 of the 184 units
+    measured already read source files their key does not hold (17.8).
   - **Degrade safely.** A unit without a usable log takes the registered
     broad closure, the specification's existing fallback.
-  - **Child processes** are outside the log. The literal-path rule (13.13)
-    keeps covering the Node modules Go code names. A package that launches
-    other programs keeps explicit roots, found by a one-time audit.
-  - **Inventory first.** One observation pass over every cacheable Go unit
-    records what each package reads. The declarations are generated from
-    it and reviewed, not written by hand.
+  - **Reads the log cannot see.** Child processes and files opened below
+    the standard library are outside the log. A reviewed list of those
+    sites states the inputs each can reach, and a source check keeps the
+    list complete.
+  - **The inventory is the first enforcing run.** Each failing unit names
+    what it read. 17.8 holds the half already measured.
+  - The execution plan, slices and amendment wording are in 17.8.
 - **Feasibility, checked at Go 1.27.4.** `go test -count=1 -json <package>
   -args -test.testlogfile=<file>` passes the flag through, the shape a Go
   unit's command already has. For `internal/platform/openapiassembly` the log
@@ -5864,7 +5869,8 @@ script that applies the planner's closure rule (`packageDirectories` in
   - A test adds an undeclared read and sees the unit fail naming the path.
   - A unit with the log disabled takes the broad closure.
   - The change-impact projection shows the last 150 commits again: the
-    count invalidating at least 65% falls from 82 toward the 42 ceiling.
+    count invalidating at least 65% falls from 82 toward 50, or 42 if
+    schemas and validators can leave too (17.8).
   - One `check` with the cache off passes with the check active.
 
 #### G63 Change cost of a module-root edit
@@ -6064,7 +6070,7 @@ script that applies the planner's closure rule (`packageDirectories` in
 | P8-2 | G75: suite-scoped summary reads; whole-run readers after the graph; the reader audit | G74's fix | 17.2 G75 validation |
 | P8-3 | G63: the change-impact measurement (done, 17.7); the projection as a `target-plan` detail | — | The projection matches 17.7 |
 | P8-4 | G78: the stop module imports what it executes | — | 17.2 G78 validation |
-| P8-5 | G40: the inventory pass; declared run-time inputs; the access-log check; the registry narrowed | D-P8-5, P8-3 | 17.2 G40 validation |
+| P8-5 | G40, in three slices (17.8): the check with named directories and declared roots; the opaque-read site list; the registry narrowed | D-P8-5 (approved), the owner's host | 17.2 G40 validation |
 | P8-6 | G63: the composition pilot on one module | P8-5, D-P8-1, D-P8-2 | 17.2 pilot validation; continue or stop recorded |
 | P8-7 | G77: the pressure reading, the plateau and the regression line | — | Section 3 restated |
 | P8-8 | Validation and handoff: paired cache-off `check`; the probe pair (unchanged, then a module-root edit); one `ci`; Section 3 refreshed | The steps that ran | Section 9 protocol passes; the handoff written |
@@ -6088,9 +6094,10 @@ restated target is met or a module's gain no longer pays for its change.
   - The access-log flag is documented for the Go command's own use and
     could change. Mitigation: the Go version is pinned, a readiness test
     asserts the flag, and a missing log selects the broad closure.
-  - Reads by child processes escape the log. Mitigation: the literal-path
-    rule stays, and packages that launch programs keep explicit roots from
-    the audit.
+  - Reads by child processes and below the standard library escape the
+    log. Mitigation: the opaque-read site list and its source check (17.8).
+    For product packages such as `rootedfs` the list records a reviewed
+    statement, which is weaker than a proof.
   - The inventory misses a read that only some hosts or modes make.
     Mitigation: the check runs on every execution, so the first such read
     fails with its path and gets a declaration.
@@ -6127,11 +6134,11 @@ Section 9 applies.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D-P8-1 | Replace Section 3's "median product change" row with the share of non-documentation commits that invalidate at least 65% of cacheable service-backed work (82 of 105 in the last 150), plus the unchanged and module-root probe walls | Approve. Set the share's target after P8-5's inventory shows how much of the 42-commit ceiling is reachable |
+| D-P8-1 | Replace Section 3's "median product change" row with the share of non-documentation commits that invalidate at least 65% of cacheable service-backed work (82 of 105 in the last 150), plus the unchanged and module-root probe walls | Approve. Set the share's target after P8-5's inventory shows how much of the 42-commit ceiling is reachable. **Approved by the owner 2026-11-28** |
 | D-P8-2 | Run the composition pilot, accepting that the pilot module's integration rows mount only what the module needs | Defer until P8-5 lands. Then approve if module-root edits are still a material share of heavy commits. Needs the pilot module's owner |
 | D-P8-3 | Record the `ci` plateau and the 1,260 s regression line; no further capacity tuning without pressure evidence | Approve |
 | D-P8-4 | Fold G74's full-run coverage into P8-8 instead of dedicated runs | Approve |
-| D-P8-5 | Amend the unit-aware closure rule: Go rows declare run-time input roots, the test access log checks them, and the registered roots narrow to those global by construction | Approve the amendment and the use of the access log, with the broad closure as its fallback |
+| D-P8-5 | Amend the unit-aware closure rule: Go rows declare run-time input roots, the test access log checks them, and the registered roots narrow to those global by construction | Approve the amendment and the use of the access log, with the broad closure as its fallback. **Approved by the owner 2026-11-28** |
 
 ### 17.6 Rejected Alternatives
 
@@ -6261,3 +6268,169 @@ Measured on 2026-11-28 at `7b7f2193b`. No test ran.
   - Changes to code that every service-backed test links, such as the
     platform, generated code and test support, legitimately re-run those
     tests. No step targets them.
+
+### 17.8 Declared Run-Time Inputs (P8-5, planned)
+
+D-P8-5 is approved. This section is the execution plan. Nothing here is
+implemented.
+
+- **Where it runs.** P8-5's code is written and verified on the owner's
+  host. The session that wrote this plan runs on a host with a hybrid
+  cgroup v1 layout, where the runtime refuses to start a graph
+  (`accounting_membership`). No row, `lint` or `source-check` runs there;
+  only `target-plan`, `generate`, `bootstrap` and `lint-markdown` do.
+- **Inventory, measured 2026-11-28 at `7b7f2193b`.** Not a harness run. Each
+  of the 184 cacheable Go units without services ran its planned
+  `go test` command directly with `-test.testlogfile`. 176 passed. 8 failed
+  outside the harness, so their logs may be incomplete. Service-backed units
+  need the harness and were not run: that half is left for the owner's
+  host.
+  - **161 of the 184 read none of the registered inputs** beyond `go.mod`,
+    `go.sum` and the toolchain pins.
+  - **`contracts`** is read by 20 units in 19 packages, each a specific
+    subtree: `contracts/openapi` by four packages,
+    `contracts/reference-pack-producers` and
+    `contracts/reference-pack-fixtures` by three each, the rest by one or
+    two.
+  - **The harness owner files** are read by one or two units each, the
+    harness's own tests.
+  - **With the registered inputs removed from every key,** 160 units read
+    nothing outside their key. Of the 24 that do, three are covered by a
+    directory their code already names by a literal.
+- **Today's keys are not closed.** 19 of the 184 units read source files
+  that their key does not hold. A change to those files does not invalidate
+  the cached result.
+
+  | Package | Read outside today's key |
+  | --- | --- |
+  | `internal/modules/revisions/conflicts` | 2,787 files: a walk over `internal/modules` |
+  | `internal/modules/codegenboundary` | 2,070 files: a walk over `internal/modules` |
+  | `internal/platform/administrativeaudit` | 1,910 files: a walk over `internal` |
+  | `internal/modules/indicators` | 1,662 files under `internal/modules` |
+  | `internal/modules/projections/adapters` | 1,464 files under `internal/modules` |
+  | `internal/platform/jobs` | 1,395 files: an architecture guard over the modules |
+  | `internal/platform/rootedfs` | 413 files under `internal/modules` |
+  | `internal/modules/networkflow` | 328 files under `fixtures/network-flow`, on rows that declare no fixture root |
+  | `internal/testutil/harnessplan` | 66 files: 60 product catalog families, the reference-pack `go.mod` files, the work estimates |
+  | `internal/app/projectionassembly`, `tools/contractgen` | The 31 migrations; the first also reads two ownership manifests under `tools` |
+  | `internal/modules/recovery` | 15 files under `internal/app` and `cmd/server` |
+  | `internal/modules/imports` | 14 files under `fixtures/import-preservation` |
+  | Three `reference_data` packages | `fixtures/reference-packs/dataset-v1`; other owners' catalog families |
+  | `internal/modules/extensions` | Four other owners' catalog families |
+  | `internal/testutil/irfixtures` | Two scripts under `fixtures/network-flow-orientation` |
+  | `internal/modules/database_migrations` | `tools/schema_object_ownership_manifest.json` |
+
+  The first seven are boundary and architecture guards that scan other
+  packages' source. They are the tests that most need to run again when
+  that source changes.
+- **What the access log does not see.**
+  - **Reads below the standard library.** 13 files open paths through raw
+    system calls: `internal/platform/rootedfs` and
+    `internal/platform/securefile` in the product, and `harnesslocal`,
+    `harnessplan/source_linux.go` and other harness packages. 103 of the
+    184 units link one of them.
+  - **Child processes.** 18 packages that cacheable units reach import
+    `os/exec`. 73 of the 184 units link one, and so does every
+    service-backed unit: `harnesssession` launches the Node stop module,
+    which loads schemas and generated validators by computed path.
+  - 79 of the 184 units link neither, so the log sees everything they read.
+- **Design.**
+  - **The check comes first, against today's keys.** It needs no narrowing
+    to be useful: it closes the 19 holes above and whatever the
+    service-backed half shows.
+  - **The record.** The runtime appends `-args -test.testlogfile=<file>` when
+    it launches a Go row unit. The file is private to the run and is not in
+    the plan, so no key holds a per-run location (the G42 rule). Every Go
+    row unit runs exactly one package, so one file serves one unit.
+  - **Reading it.** The runtime follows `chdir` records, resolves each
+    `open` and `stat` against the directory in force, and keeps the paths
+    inside the repository.
+    - A read or `stat` of an indexed source file must be a member of the
+      unit's closure.
+    - An `open` of a directory must find every indexed file beneath it in
+      the closure, because the listing is an input.
+    - A path outside the source index is ignored: results, caches,
+      installed packages and files that do not exist.
+  - **The failure.** The unit fails as `config` / `configuration_error`, an
+    existing reason, and its log names each undeclared path, bounded. The
+    result is not stored.
+  - **Every cache mode.** The check runs whenever a cacheable Go unit
+    executes. The planner therefore computes closures in the off mode too,
+    for the check alone.
+  - **Three ways a file enters a Go row's key,** beyond its imports.
+    - **Named file.** 13.13's rule, unchanged.
+    - **Named directory.** New: a literal that names an indexed directory
+      brings its subtree. 13.13 left directories to the registered inputs.
+    - **Declared root.** `runtime_input_roots` on a catalog row, a bounded
+      list of confined repository paths. `fixture_input_roots` is its
+      subset beneath `fixtures/` and keeps its name.
+  - **Opaque-read sites.** The cache registry lists each Go package that
+    launches a program or opens files below the standard library, with the
+    inputs those reads can reach. A unit whose closure holds a site takes
+    the site's inputs. A source check fails on a site that is not listed.
+    - `harnesssession`: the stop module's closure, `tools/schemas` and the
+      generated validators.
+    - `harnessplan/source_linux.go`: the whole source index, so the
+      planner's own tests stay broad.
+    - `rootedfs` and `securefile`: no repository input; they open roots
+      the caller passes. This is a reviewed statement, not a proof.
+  - **Then narrow.** `test_rows.unit_inputs` keeps the dependency
+    manifests, the toolchain pins and the row runner. Every other registered
+    path and both prefixes go.
+  - **Vitest rows** keep their registered inputs. Node has no such record,
+    and the 13 Vitest units hold no service-backed work.
+- **Slices.**
+
+  | Slice | Work | Exit |
+  | --- | --- | --- |
+  | P8-5a | The specification amendment. The record, the check and its failure. The named-directory rule and `runtime_input_roots`. The findings fixed by naming or declaring: the 19 above first, then the service-backed units' | A test with an undeclared read fails naming the path. A cache-off `check` passes with the check active |
+  | P8-5b | The opaque-read site list and its source check | Every `os/exec` importer and raw opener that a cacheable unit reaches is listed. An unlisted one fails the check |
+  | P8-5c | The registered inputs narrowed | A cache-off `check` passes. The projection over the last 150 commits is recorded here |
+
+  P8-5a only adds members to keys, so it cannot cause a stale hit. P8-5c
+  removes members and depends on both earlier slices.
+- **Expected effect.** Of the 82 heavy commits in the last 150, 42 remain
+  if every registered input leaves every key, and 50 if schemas and
+  validators stay for the units that launch harness Node modules. Over the
+  history the figures are 546 and 569 of 742.
+- **Proposed amendment wording,** for the unit-aware closure paragraphs. It
+  lands with P8-5a's code, not before:
+
+  > A Go row's closure also includes every repository file its Go closure
+  > names by a string literal, the indexed subtree of every repository
+  > directory it names so, the module closure of a named Node module, and
+  > the rows' declared `runtime_input_roots`: a unique bounded list of
+  > confined repository paths, of which `fixture_input_roots` is the subset
+  > beneath `fixtures/`. A Go row unit MUST NOT hold registered inputs
+  > beyond the dependency manifests, the toolchain pins and the row runner's
+  > closure. When a cacheable Go row unit executes, the runtime MUST obtain
+  > the test process's file-access record. It MUST fail the unit as a
+  > configuration error that names each path when the process read an
+  > indexed source file outside the unit's closure, or listed a directory
+  > whose indexed members are not all in it. The record covers reads through
+  > the Go standard library in the test process. A Go package that launches
+  > another program, or opens files beneath the standard library, MUST be
+  > listed as an opaque-read site with the inputs its reads can reach. A
+  > unit whose closure holds a listed site includes those inputs. An
+  > unlisted site fails a source check. A unit whose record is unavailable
+  > MUST take the registered safe broad closure.
+
+- **Open points for the implementer.**
+  - Whether the eight units that failed outside the harness read more than
+    their partial logs show.
+  - The service-backed half of the inventory. The first enforcing `check`
+    on the owner's host produces it: each failing unit names its paths.
+  - A policy guard that walks `internal` needs `internal` as a declared
+    root, so any backend edit runs it again. Each of the seven takes about
+    5 s.
+
+### 17.9 Restated Target (D-P8-1, approved)
+
+These rows replace Section 3's "`check` graph wall after a localized product
+change" row when this section is merged with Phase 7.
+
+| Metric | Current (2026-11-28) | Target |
+| --- | ---: | ---: |
+| Share of the last 150 non-documentation commits that invalidate at least 65% of cacheable service-backed work (change-impact projection, 17.7) | 82 of 105 (78%) at `7b7f2193b` | Set when P8-5c's projection is recorded; the ceiling is 42 to 50 of 105 |
+| `check` wall on an unchanged tree, normal cache mode | 63 s (P7-6) | No regression |
+| `check` wall after one module-root edit, normal cache mode | 391 s (P7-6) | Follows the full run until the composition pilot (P8-6); no separate target |
