@@ -1694,6 +1694,14 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.test_services.postgres_footprint.v1",
+      "path": "tools/schemas/cartulary.test_services.postgres_footprint.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "service suite",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.test_services.postgres_provisioning.v2",
       "path": "tools/schemas/cartulary.test_services.postgres_provisioning.v2.schema.json",
       "classification": "shared_component",
@@ -1707,14 +1715,6 @@
       "classification": "shared_component",
       "producer": "service suite cleanup authority",
       "validation": "harness.json_shape_check"
-    },
-    {
-      "schema_id": "cartulary.test_services.postgres_footprint.v1",
-      "path": "tools/schemas/cartulary.test_services.postgres_footprint.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "service suite",
-      "validation": "harness.json_shape_check",
-      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_services.scope.v2",

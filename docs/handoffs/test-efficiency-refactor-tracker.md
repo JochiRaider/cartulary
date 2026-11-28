@@ -7072,6 +7072,13 @@ the generation's `tmpfs` come from one value, so admission still bounds use.
   scratch copy of the estimates, the rerun `p7-5c-seg-footprint2` planned
   768 MB, ran on a 512 MiB `tmpfs` and passed; the scratch fold was then
   reverted.
+- **First gate run.** `p7-5c-ci01` (1,202 s graph) failed one unit,
+  `harness.json_shape_check`: the footprint schema's attachment entry was out
+  of order. The segments had not included `source-check CHECK=schema`, which
+  runs that check. The entry was moved, outputs regenerated, and
+  `CHECK=schema`, `CHECK=generated` and `harness-contract SUITE=contract`
+  passed. 126 of 127 suites recorded a footprint. A failed run cannot be
+  folded, so a passing `ci` records the footprints instead.
 - **Gate (pending).** One `check` and one `ci` record footprints;
   `estimate-refresh` folds them; then a `check` pair and one `ci` on sized
   claims must show no disk-full failure, every peak under its capacity and
