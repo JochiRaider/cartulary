@@ -1409,6 +1409,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | P7-5c / G65 gate | D49 shares recorded and folded; sized `check` pair and `ci` | `p7-5c-ci04` (recording), `p7-5c-check01`, `-check02`, `p7-5c-ci05` | Gate passed: no memory-blocked wait, no peak over claim, at least 22 GB available (16.15) |
 | 2026-11-28 | P7-5c / G67 | Browser cohorts claim their renderer core; analyzer profiles claim and cap their cores; gosec runs through a single-load driver on gosec v2.30.0; a stale launcher defers a registry it rejects | `p7-5c-ci03` (measurement), parity runs, 13 targeted segments and the three analyzer targets | Pass; targeted only, at the owner's direction (16.16) |
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
+| 2026-11-28 | P7-5d / G66, G67 | 10 and 12 generations by override; ledger CPU and process CPU sampled; two defects found (G71, G72) | `p7-5d-gen10-check01`, `-check02`, `p7-5d-gen12-check01`, `-check02`, `p7-5d-gen10-ci01`, `p7-5d-pins-rel`, `-none` | Ten: `check` 435 to 405 s, `ci` unchanged; twelve gains nothing; margin holds; adoption pending (16.18) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -7230,3 +7231,102 @@ following its largest test.
 - **Migration.** v2's per-row peaks mean something else, so the v3 file
   starts with no shares and no base; the gate's first passing run
   re-observes them, and every unit claims 4,352 MB until then.
+
+### 16.18 Generation Count and CPU Margin (P7-5d, G66, G67)
+
+Status: measured 2026-11-28; adopting the count awaits the owner (D50).
+
+Diagnostic `check` pairs ran at 10 and 12 generations, alternating, with
+PostgreSQL and object-store lanes raised with them by capacity override;
+heavy lanes stayed at 4. One `ci` ran at 10. Eight is P7-5c's gate on the
+same code (`p7-5c-check01`, `-check02`, `-ci05`). The host ledger's charged
+CPU was sampled every 0.5 s during the `check` runs, and process CPU by
+command during the `ci`.
+
+| `check` | 8 | 10 | 12 |
+| --- | ---: | ---: | ---: |
+| Graph | 435, 439 s | 405, 406 s | 407, 407 s |
+| Fixture acquisition | 75, 76 s | 91, 91 s | 96, 94 s |
+| Test execution | 360, 361 s | 314, 315 s | 311, 312 s |
+| PostgreSQL unit-seconds | 3,303, 3,328 | 3,550, 3,583 | 3,642, 3,650 |
+| Heavy lanes saturated | 322, 313 s | 354, 375 s | 372, 372 s |
+| CPU tokens saturated | 242, 230 s | 289, 288 s | 307, 308 s |
+| CPU pressure mean / p90 / max | 10.0 / 22.2 / 57%, 10.1 / 23.5 / 53% | 12.8 / 22.8 / 53%, 12.6 / 22.7 / 54% | 13.5 / 20.9 / 52%, 13.6 / 22.4 / 49% |
+| Lowest available memory | 22.4, 22.1 GB | 19.3, 20.5 GB | 22.7, 21.3 GB |
+
+| `ci` | 8 (`p7-5c-ci05`) | 10 (`p7-5d-gen10-ci01`) |
+| --- | ---: | ---: |
+| Graph | 1,187 s | 1,178 s |
+| Fixture acquisition | 249 s | 234 s |
+| Saturated: browser lanes, CPU tokens | 916 s, 953 s | 983 s, 872 s |
+| Waits blocked by generations | 679 (54,890 unit-s) | 440 (22,449 unit-s) |
+| Waits blocked by object stores | 689 (67,715 unit-s) | 455 (31,723 unit-s) |
+| CPU pressure mean / p90 / max | 5.6 / 9.4 / 53% | 5.7 / 10.8 / 54% |
+| Lowest available memory | 26.0 GB | 23.4 GB |
+| Units | 504 of 504 passed | 503 of 504 passed (method failure, below) |
+
+Saturation comes from the run summary's projection, which G71 shows
+slightly overstates physical holds.
+
+#### Generation count (G66)
+
+- **Ten generations take 30 s (7%) off `check`**, all of it in test
+  execution; fixture acquisition rises 15 s. The pair repeats within 1 s.
+- **Twelve gain nothing.** Heavy work of 1,538 to 1,551 unit-seconds over
+  four heavy lanes is 385 to 388 s, just under the 405 s graph: heavy lanes
+  and CPU tokens now bound `check`, not generations.
+- **`ci` is unchanged** (1,178 against 1,187 s). Browser lanes and CPU
+  tokens bound it; waits for generations and object stores halve.
+- **Gate.**
+  - Memory: at least 19.3 GB available (gate 8 GB); no OOM kill, disk-full
+    error or peak over its claim.
+  - CPU pressure: p90 and maximum unchanged; the `check` mean rises 2.7
+    points because the same work runs in less time, with test execution
+    shorter, not slower.
+  - Failures: none from the count. The `ci`'s one failure was the
+    measurement method.
+- **Method failure (G72).** `harness.assurance_toolchain_pins` runs a nested
+  `make source-check` in a scratch copy of the repository, and Make passed
+  it the caller's relative override, `tmp/p7-5d-gen10.json`, which does not
+  exist in the copy. Reproduced alone: the row fails with that override
+  (`p7-5d-pins-rel`) and passes without it (`p7-5d-pins-none`). The other
+  503 units passed, none cancelled or skipped.
+
+#### CPU at higher counts (G67)
+
+- **The ledger never overcommits.** Across 2,912 samples it never charged
+  more than 19 tokens; it was full in 67% of nonidle samples.
+- **Run summaries overstate CPU use (G71).** They report peak use of 27 to
+  30 tokens, because the projection holds each claim from `admitted` to the
+  terminal event, while the worker releases its host lease after the runner
+  and fixture release, before evidence write and cache publish
+  (`harnessruntime/lifecycle.go`).
+- **Use against claim** (process CPU mapped to units through the execution
+  index):
+  - Go test units use 48% of their token, Vitest 27 to 29% of two, and
+    one-token policy operations 78 to 86%.
+  - Browser cohorts hold 60% of `ci`'s token-seconds (13,310 of 21,980) at
+    three tokens each, but use about 1.15 cores: runner 0.15,
+    `server-harness` 0.1 and renderer 0.9 (p90 1.3).
+- **Uncharged CPU fits the margin.** PostgreSQL averages 1.1 cores in `ci`
+  and 2.0 in `check` (p90 2.4 and 3.0, maximum 7.7 and 3.9), the object
+  store 0.1 to 0.2 and the harness runtime 0.3. Only brief maxima exceed the
+  5-core margin. The host CPU not attributed earlier is short-lived unit
+  processes reaped by the harness (5,307 CPU-s in `ci`).
+- **Conclusion.** The 25% margin holds. Tokens bind while cores sit idle
+  (11.3 busy in `ci`, 13.8 in `check`) because claims exceed use, chiefly the
+  browser cohorts' third token.
+
+#### Gaps
+
+| Gap | Problem | Areas | Severity |
+| --- | --- | --- | --- |
+| G71 | The run summary's resource pressure holds physical claims until the terminal event, after the host lease is released, so peak use reads above capacity and saturation is overstated | Specification, implementation, tests | Medium |
+| G72 | A nested Make in a scratch copy inherits the caller's capacity override, so a relative override fails `assurance_toolchain_pins` | Implementation, tests | Low |
+
+#### Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D50 | Generation count | Adopt ten generations, ten PostgreSQL lanes and ten object-store lanes as registry defaults, and repair the spec's capacity rows left stale by P4-5 (the `postgres_generation` resource, registry v10, snapshot and override v2, PostgreSQL lanes). Twelve is rejected: heavy lanes and CPU tokens bound it. |
+| D51 | CPU margin | Keep 25%. Measure next where claims exceed use: browser cohorts at two tokens (renderer and runner) with P7-5f's lanes, and heavy lanes 5 and 6 at ten generations, the next `check` bound. |
