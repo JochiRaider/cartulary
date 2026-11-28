@@ -7079,6 +7079,20 @@ the generation's `tmpfs` come from one value, so admission still bounds use.
   `CHECK=schema`, `CHECK=generated` and `harness-contract SUITE=contract`
   passed. 126 of 127 suites recorded a footprint. A failed run cannot be
   folded, so a passing `ci` records the footprints instead.
+- **Second gate run.** `p7-5c-ci02` (1,194 s graph) failed two timing
+  rows under CPU pressure: `harnessredact`'s linearity case took 5.04 s
+  against its 5 s wall-clock bound (it usually takes about 3 s; the row
+  passed in seven earlier `ci` runs at 43 to 51 s), and the Mermaid
+  renderer's SVG test hit its 30 s timeout (the row usually takes 15 s).
+  During the Mermaid unit, `cpu some` pressure averaged 36% and exceeded
+  50% for 25 of 66 s.
+- **What G65 changed in `ci`.** Memory no longer blocks any `ci` wait
+  (198,481 blocked unit-seconds in `p7-5b-ci01`, none in `p7-5c-ci01` or
+  `-ci02`). CPU now blocks most (213,064 and 162,547 unit-seconds). Graph
+  time did not improve (1,172 s before, 1,201 and 1,194 s after), and more
+  of that time is spent at full CPU. CPU tokens cover test processes only,
+  so resident PostgreSQL servers and browser stacks use cores on top of the
+  19 tokens (G67).
 - **Gate (pending).** One `check` and one `ci` record footprints;
   `estimate-refresh` folds them; then a `check` pair and one `ci` on sized
   claims must show no disk-full failure, every peak under its capacity and

@@ -29,7 +29,9 @@ func TestStringUsesSharedHarnessRules(t *testing.T) {
 }
 
 // TH-HARNESS-REQ-617: redaction is linear in its input. Adversarial runs of
-// 4 MiB finish far inside a bound that a quadratic redactor cannot meet.
+// 4 MiB use far less CPU than a bound that a quadratic redactor cannot meet.
+// The bound is on the redacting thread's CPU time, so a loaded host cannot
+// fail a linear redactor.
 func testLinearRedaction(t *testing.T) {
 	const size = 4 << 20
 	fill := func(unit string) string { return strings.Repeat(unit, size/len(unit)+1)[:size] }
@@ -45,11 +47,12 @@ func testLinearRedaction(t *testing.T) {
 			"json_value":         `{"message":"` + run + `","next":"x"}`,
 			"json_key":           `{"` + run + `":"value"}`,
 		} {
-			started := time.Now()
-			_ = String(input)
-			_ = StructuredString(input)
-			if elapsed := time.Since(started); elapsed >= 5*time.Second {
-				t.Errorf("%s/%s took %s for a 4 MiB input", context, name, elapsed)
+			used := threadCPU(t, func() {
+				_ = String(input)
+				_ = StructuredString(input)
+			})
+			if used >= 5*time.Second {
+				t.Errorf("%s/%s used %s of CPU for a 4 MiB input", context, name, used)
 			}
 		}
 	}
