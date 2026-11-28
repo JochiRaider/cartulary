@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-28. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), the rest of P7-5 is replanned (16.13), P7-5b to P7-5d are done (16.14 to 16.18), and P7-5e closed without a change; P7-5f, P7-5g and P7-6 remain. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-28. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12), the rest of P7-5 is replanned (16.13), P7-5b to P7-5d are done (16.14 to 16.18), P7-5e closed without a change, P7-5f kept four browser lanes and P7-5g closed with G70 (16.19); D53 and P7-6 remain. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1411,6 +1411,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
 | 2026-11-28 | P7-5d / G66, G67 | 10 and 12 generations by override; ledger CPU and process CPU sampled; two defects found (G71, G72) | `p7-5d-gen10-check01`, `-check02`, `p7-5d-gen12-check01`, `-check02`, `p7-5d-gen10-ci01`, `p7-5d-pins-rel`, `-none` | Ten: `check` 435 to 405 s, `ci` unchanged; twelve gains nothing; margin holds; eight kept (D50, 16.18) |
 | 2026-11-28 | G73 | Spec capacity rows repaired: the `postgres_generation` resource and `postgres_generations` capacity, registry v10, snapshot and override v2, eight PostgreSQL lanes, REQ-803's resident claim; P7-5e closed without a change (G68, 16.14) | `make lint-markdown` | Documentation only |
+| 2026-11-28 | P7-5f / G61, G70 | Five browser lanes only, at the owner's direction; browser container I/O and host I/O pressure sampled | `p7-5f-lanes5-ci01`, `-ci02` against `p7-5c-ci05` | `ci` 1,189 and 1,185 s against 1,187 s: CPU token claims bound it; four lanes kept (D52); G70 and P7-5g closed; two-token browser claim proposed (D53, 16.19) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6746,7 +6747,8 @@ the same day. It replaces the rest of P7-5 (16.3) and keeps G61 at its end.
 P7-5b to P7-5d are done (16.14 to 16.18). P7-5e closed without a change:
 P7-5b measured that the disk does not limit the object store (G68, 16.14),
 and P7-5d's ten object-store lanes halved its blocked wait time without
-moving `ci`.
+moving `ci`. P7-5f kept four browser lanes, and P7-5g closed with G70
+(16.19).
 
 #### Findings
 
@@ -7340,3 +7342,70 @@ slightly overstates physical holds.
 | --- | --- | --- |
 | D50 | Generation count | Adopt ten generations, ten PostgreSQL lanes and ten object-store lanes as registry defaults, and repair the spec's capacity rows left stale by P4-5 (the `postgres_generation` resource, registry v10, snapshot and override v2, PostgreSQL lanes). Twelve is rejected: heavy lanes and CPU tokens bound it. **Declined by the owner 2026-11-28: eight stays.** |
 | D51 | CPU margin | Keep 25%. Measure next where claims exceed use: browser cohorts at two tokens (renderer and runner) with P7-5f's lanes, and heavy lanes 5 and 6 at ten generations, the next `check` bound. |
+
+### 16.19 Browser Lanes (P7-5f, G61, G70)
+
+Status: measured 2026-11-28. Five lanes only, at the owner's direction; six
+were not run. Four lanes stay (D52); the browser CPU claim is the next lever
+and awaits the owner (D53).
+
+Two diagnostic `ci` runs ran at `BROWSER_LANES=5` (`p7-5f-lanes5-ci01`,
+`-ci02`). Four lanes is P7-5c's gate `ci` (`p7-5c-ci05`); only documentation
+changed since. Samplers recorded host memory, CPU and I/O pressure, and each
+container's CPU and block I/O.
+
+| `ci` | 4 (`p7-5c-ci05`) | 5 (`-ci01`) | 5 (`-ci02`) |
+| --- | ---: | ---: | ---: |
+| Graph | 1,187 s | 1,189 s | 1,185 s |
+| Last browser cohort ends | 1,185 s | 1,088 s | 1,086 s |
+| Ordinary cohorts | 27 | 29 | 29 |
+| Cohort runner time | 4,107 s | 4,082 s | 4,119 s |
+| Same 19 cohorts, runner time median / maximum ratio | — | 1.01 / 1.11 | 1.01 / 1.12 |
+| CPU token-seconds claimed (share of 19 tokens over the graph) | 21,980 (97%) | 21,847 (97%) | 21,890 (97%) |
+| Browser cohorts' token-seconds, lane-seconds | 13,310, 4,437 | 13,358, 4,453 | 13,426, 4,475 |
+| Saturated: CPU tokens, browser lanes | 953 s, 916 s | 796 s, 362 s | 857 s, 478 s |
+| CPU pressure mean / p90 / max | 5.6 / 9.4 / 53% | 5.2 / 8.5 / 38% | 5.2 / 8.4 / 42% |
+| I/O pressure (some) mean / p90 | — | 1.3 / 2.2% | 1.1 / 1.9% |
+| Lowest available memory | 26.0 GB | 26.8 GB | 27.0 GB |
+| Units | 504 of 504 passed | 506 of 506 passed | 506 of 506 passed |
+
+#### Browser lanes (G61)
+
+- **No wall gain.** The browser cohorts finish about 100 s sooner, but `ci`
+  does not. A fifth lane takes CPU tokens earlier, and Go units eligible in
+  the first seconds are admitted in the last ten (at 1,181 to 1,184 s).
+- **CPU tokens bound `ci`.** Claims total 21,850 to 21,980 token-seconds, a
+  floor of 1,150 to 1,157 s at 19 tokens, and every run holds 97% of it. No
+  lane count goes below that floor while claims stay as they are.
+- **Browser cohorts hold 61% of those token-seconds** at three tokens each,
+  and use about 1.15 cores (16.18).
+- **Gate.** Same-cohort runner time grows at most 12% (limit 15%), nothing
+  fails, and at least 26.8 GB stays available. Only the wall gain fails.
+  Six lanes would meet the same floor.
+
+#### Browser temporary data (G70)
+
+- Playwright containers write 9.8 GiB per `ci` (at most 2.1 GiB each) and
+  read almost nothing. I/O pressure is about 1% of the browser phase (p90
+  1.6%), under the 5% threshold. G70 closes without a change, and P7-5g with
+  it (G69 closed in 16.14).
+
+#### Lanes and the browser claim together
+
+The lane count and the browser CPU claim bound `ci` jointly. A projection from
+these runs, which assumes cohort times do not grow:
+
+| Browser claim | Four lanes | Five lanes |
+| --- | --- | --- |
+| Three tokens (now) | About 1,157 s, CPU tokens | About 1,157 s, CPU tokens |
+| Two tokens | About 1,110 s, browser lanes (4,450 lane-seconds) | About 920 s, CPU tokens (about 17,500 token-seconds) |
+
+The renderer's p90 of 1.3 cores (16.18) may slow cohorts at two tokens; the
+gate's 15% per-cohort limit catches that.
+
+#### Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D52 | Browser lanes | Keep four. Five lanes pass the per-cohort, failure and memory limits but gain nothing, because CPU token claims bound `ci`. Six are not measured, at the owner's direction. |
+| D53 | Browser CPU claim | Measure browser cohorts at two tokens (renderer and runner), at four and then five lanes, through G61's gate. Lowering the claim is the only change that moves `ci`'s CPU floor (D51). |
