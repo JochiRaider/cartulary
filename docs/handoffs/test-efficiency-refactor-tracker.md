@@ -1406,6 +1406,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
 | 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Approved as recommended (16.13) |
 | 2026-11-28 | P7-5c / G65 | Topology v17 PostgreSQL profiles; unit generations sized from per-row footprints (estimates v2); the broker sizes each `tmpfs` from its resident claim; `terminate-suite` records `postgres-footprint.json` | `p7-5c-seg-footprint`, `-footprint2`, eight segments | Implemented; gate pending (16.15) |
+| 2026-11-28 | P7-5c / G65 gate | D49 shares recorded and folded; sized `check` pair and `ci` | `p7-5c-ci04` (recording), `p7-5c-check01`, `-check02`, `p7-5c-ci05` | Gate passed: no memory-blocked wait, no peak over claim, at least 22 GB available (16.15) |
 | 2026-11-28 | P7-5c / G67 | Browser cohorts claim their renderer core; analyzer profiles claim and cap their cores; gosec runs through a single-load driver on gosec v2.30.0; a stale launcher defers a registry it rejects | `p7-5c-ci03` (measurement), parity runs, 13 targeted segments and the three analyzer targets | Pass; targeted only, at the owner's direction (16.16) |
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
@@ -7125,10 +7126,29 @@ footprint recording stand.
     started beside four browser cohorts and two Vitest units. Each `gosec`
     and `govulncheck` operation claims one token but analyzes the program
     on every core.
-- **Gate (pending).** One `check` and one `ci` record footprints;
-  `estimate-refresh` folds them; then a `check` pair and one `ci` on sized
-  claims must show no disk-full failure, every peak under its capacity and
-  memory-blocked waits near zero at eight generations.
+- **Gate (passed 2026-11-28).** `p7-5c-ci04` recorded shares under the D49
+  model (base 156 MiB, 458 rows; median share 34 MiB, largest 1,755) and was
+  folded. On sized claims:
+
+  | Run | Graph | Memory-blocked waits | Lowest MemAvailable | Peaks over claim |
+  | --- | ---: | ---: | ---: | ---: |
+  | `p7-5c-check01` | 435 s | 0 | 22.4 GB | 0 of 86 |
+  | `p7-5c-check02` | 439 s | 0 | 22.1 GB | 0 of 86 |
+  | `p7-5c-ci05` | 1,187 s | 0 | 26.0 GB | 0 of 99 |
+
+  No disk-full error and no OOM kill. The `check` plan claims 110,336 MB
+  across 86 unit generations (median 768, largest 3,840, none at the cap),
+  against 374,272 MB at the fixed claim. `check` time is unchanged (429 s
+  before), as eight generations never waited on memory there; `ci`'s
+  memory-blocked time went from 198,481 unit-seconds (`p7-5b-ci01`) to none.
+- **CPU after G67.** In `p7-5c-ci05`, CPU pressure averaged 5.6% (p90 9.1%,
+  maximum 53%) against 9.1% (16.6%, 80%) in `p7-5c-ci03`. Units held all 19
+  tokens most of the time (mean 18.5) while the host averaged 11.3 busy
+  cores, and CPU is now the most-blocked resource (425,127 unit-seconds).
+  The 25% token margin was sized for uncharged service CPU; with renderers
+  now charged, only PostgreSQL (1.1 cores, p90 1.7) and the object store
+  remain outside it. Reviewing that margin belongs with P7-5d's capacity
+  measurements.
 
 ### 16.16 CPU Claims That Cover Use (P7-5c, G67)
 
