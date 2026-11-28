@@ -6952,7 +6952,7 @@ the same day. It replaces the rest of P7-5 (16.3) and keeps G61 at its end.
 | Step | Work | Depends on | Exit |
 | --- | --- | --- | --- |
 | P7-5b | Measure: generation peak per profile, service CPU, object-store and browser I/O, direct-owner share; one diagnostic `check` and one `ci` | — | Numbers recorded here |
-| P7-5c | G65: profile-sized generations; spec, topology, planner, broker, tests | P7-5b | G65 validation on segments, a `check` pair and one `ci` |
+| P7-5c | G65: profile-sized generations; spec, topology, planner, broker, tests; G67 and D49 folded in | P7-5b | G65 validation on segments, a `check` pair and one `ci` (G67 confirmed by targeted tests) |
 | P7-5d | G66 and G67: 8, 10 and 12 generations through their gate | P7-5c | Count adopted or kept, with its evidence |
 | P7-5e | G68: object store in memory, through its gate | P7-5b, P7-5c | G68 validation |
 | P7-5f | G61: browser lanes 5 and 6 through their gate (D41) | P7-5d, P7-5e | Lane default adopted or kept |
@@ -6983,9 +6983,11 @@ the same day. It replaces the rest of P7-5 (16.3) and keeps G61 at its end.
 | --- | --- | --- |
 | D43 | Generation memory charge | Size by resident profile from measured peaks with a 1.5 margin, and charge exactly that size; no overcommit. Rejected: expected-size charges under one 4 GiB cap (admission stops bounding use), and per-unit observed sizes (more exact, but a new observation channel; it remains a later option). **Approved 2026-11-28**. **Revised by the owner the same day after P7-5b (16.14):** profiles for browser-stack, shared and measurement generations, and per-row observed footprints for unit generations; the charge still equals the tmpfs size. |
 | D44 | Generation count | Measure 8, 10 and 12 after D43 and adopt through G66's gate; keep 8 until it passes. **Approved 2026-11-28** |
-| D45 | Service CPU | Charge it only if G67's measurement shows the margin exceeded. **Approved 2026-11-28** |
+| D45 | Service CPU | Charge it only if G67's measurement shows the margin exceeded. **Approved 2026-11-28**. **Resolved 2026-11-28 (16.16):** `p7-5c-ci03` showed the margin exceeded while the host was never short of cores; renderers are charged to their cohorts and the analyzers claim and cap their cores (D48). |
 | D46 | Object store | Move broker stores to tmpfs through G68's gate; restarting suites and SeaweedFS gate instances stay on disk. **Approved 2026-11-28** |
 | D47 | Direct owners and browser data | Measure first; act only at 5% or more of a command's wall time. **Approved 2026-11-28** |
+| D48 | Tool CPU and the gosec scanner | Charge each browser cohort its renderer core; give gosec and govulncheck measured profiles and cap them at their claim; run gosec through a single-load driver over its library, and update gosec to v2.30.0. **Approved by the owner 2026-11-28** (both fixes, driver now, latest gosec); confirmed by targeted tests only, at the owner's direction. |
+| D49 | Unit-generation memory model | Model a unit generation as a base plus additive row shares divided by duration, and pack units on their own generation in time and memory. Supersedes the per-row maximum of unit peaks, which over-claimed light rows and could under-claim repacked rows because databases accumulate (REQ-357). **Approved by the owner 2026-11-28** |
 
 ### 16.14 Measurements (P7-5b, done)
 
@@ -7034,7 +7036,9 @@ sampler did not start).
 
 D43 as revised: the topology carries one claim per generation kind, and a
 unit generation is sized from its rows' observed footprints. The claim and
-the generation's `tmpfs` come from one value, so admission still bounds use.
+the generation's `tmpfs` come from one value, so admission still bounds use. The per-row footprint model below was replaced by additive shares and
+memory-aware packing in 16.17 (D49); the profiles, broker sizing and
+footprint recording stand.
 
 - **Topology v17.** `physical_resource_claims` gains `postgres_shared`
   (1,792 MB), `postgres_browser_stack` (768 MB) and `postgres_measurement`
@@ -7087,6 +7091,13 @@ the generation's `tmpfs` come from one value, so admission still bounds use.
   renderer's SVG test hit its 30 s timeout (the row usually takes 15 s).
   During the Mermaid unit, `cpu some` pressure averaged 36% and exceeded
   50% for 25 of 66 s.
+- **Mermaid timeout.** The render test checks every case, two inline and six
+  fixture vectors, each rendered twice, inside one 30 s deadline. Under
+  mixed load the row took 20.0 to 21.2 s in five repetitions (about 15 s
+  idle), and it averages 1.37 running threads against its 1-token claim, so
+  the claim was not the cause. The cases now load with the module and the
+  deadline is 10 s per case (80 s), so a new vector widens it instead of
+  narrowing every case's share.
 - **What G65 changed in `ci`.** Memory no longer blocks any `ci` wait
   (198,481 blocked unit-seconds in `p7-5b-ci01`, none in `p7-5c-ci01` or
   `-ci02`). CPU now blocks most (213,064 and 162,547 unit-seconds). Graph
@@ -7165,3 +7176,37 @@ using more cores than they claim. The owner chose both fixes.
   rules reject (here, the new `package` field) failed every stale launcher.
   It now hands the run to the current sources, as it already does for stale
   bytes.
+
+### 16.17 Additive Generation Memory and Memory-Aware Packing (P7-5c, D49)
+
+16.15's model recorded a unit generation's whole peak against each of its
+rows and sized a unit by its rows' largest record. That rested on a wrong
+premise: a single-unit generation keeps every database its tests create until
+it retires (REQ-357), so its memory accumulates across its rows rather than
+following its largest test.
+
+- **Consequences of the old model.** Light rows packed with a heavy one
+  inherited its peak (after `p7-5c-ci03`, many rows sat at 1,792 to
+  4,352 MB). Worse, rows observed in different units and repacked together
+  could exceed every peak they had recorded, so a claim could fall below
+  use.
+- **Measured shape.** In `p7-5c-ci03` the smallest unit generation peaked at
+  156 MiB (p10 161, median 255, largest 3,280). Memory above that base
+  tracks the rows' reported runtime (correlation 0.77) better than test
+  count (0.71) or row count (0.69).
+- **Model.** A refresh takes the run's base as its smallest uncached unit
+  generation's peak and divides each unit's peak above the base among its
+  rows by reported duration, as runner time is divided. Estimates v3 keep
+  each row's last three shares (`generations`) and the last three bases
+  (`generation_base`). A unit claims three halves of the largest base plus
+  its rows' largest shares, in 256 MB steps between 768 MB and 4,352 MB; a
+  row without a share, or no base, gives the full claim.
+- **Packing.** Units on their own generation balance two loads: work against
+  the target, and shares against the generation budget (two thirds of
+  4,352 MB less the base, so a claim keeps its margin). The splitter opens
+  enough units for both, places items largest-first where they least raise
+  the larger normalized load, and adds units until no multi-row unit
+  exceeds the memory budget. Other contracts pack exactly as before.
+- **Migration.** v2's per-row peaks mean something else, so the v3 file
+  starts with no shares and no base; the gate's first passing run
+  re-observes them, and every unit claims 4,352 MB until then.

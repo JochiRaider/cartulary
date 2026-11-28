@@ -58,178 +58,190 @@ async function allocatePort() {
   return address.port;
 }
 
-it("Mermaid renders real graph geometry arrowheads and sequence messages as repeatable passive SVG", async () => {
-  const browser = await chromium.launch();
-  const diagnostics: string[] = [];
-  const newContext = browser.newContext.bind(browser);
-  // Only authored synthetic fixtures enter this diagnostic capture. Production
-  // never retains vendor exceptions containing incident text or destinations.
-  vi.spyOn(browser, "newContext").mockImplementation(async (options) => {
-    const context = await newContext(options);
-    context.on("page", (page) => {
-      const evaluate = page.evaluate.bind(page);
-      vi.spyOn(page, "evaluate").mockImplementation(async (...args) => {
-        try {
-          return await evaluate(...args);
-        } catch (error) {
-          diagnostics.push(String(error).slice(0, 1000));
-          diagnostics.push(
-            JSON.stringify(
-              await evaluate(() =>
-                [...document.querySelectorAll("#output svg *")]
-                  .filter((element) => {
-                    const style = getComputedStyle(element);
-                    return (
-                      style.filter !== "none" ||
-                      style.clipPath !== "none" ||
-                      style.maskImage !== "none"
-                    );
-                  })
-                  .slice(0, 8)
-                  .map((element) => ({
-                    tag: element.tagName,
-                    filter: getComputedStyle(element).filter,
-                    clip: getComputedStyle(element).clipPath,
-                    mask: getComputedStyle(element).maskImage,
-                    attrs: [...element.attributes].map(({ name, value }) => [
-                      name,
-                      value,
-                    ]),
-                  })),
-              ),
-            ),
-          );
+const vectors = JSON.parse(
+  await readFile(
+    new URL(
+      "../../../contracts/reporting/fixtures/mermaid-source.v4.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as {
+  cases: {
+    diagram: { edges: { direction: string }[] };
+    source_lines: string[];
+    visible_labels: string[];
+  }[];
+};
+const renderCases = [
+  {
+    source: flowchart,
+    labels: ["First node", "Second node", "Connects"],
+    arrowheads: 1,
+  },
+  {
+    source: sequence,
+    labels: ["First participant", "Second participant", "Message"],
+    arrowheads: 1,
+  },
+  ...vectors.cases.map((vector) => ({
+    source: vector.source_lines.join("\n"),
+    labels: vector.visible_labels,
+    arrowheads: vector.diagram.edges.reduce(
+      (count, edge) =>
+        count +
+        (edge.direction === "undirected"
+          ? 0
+          : edge.direction === "bidirectional"
+            ? 2
+            : 1),
+      0,
+    ),
+  })),
+];
+// Each case renders twice and is checked in a fresh page. The deadline
+// follows the cases, so a new vector never narrows the others' time.
+const renderCaseBudgetMS = 10_000;
 
-          throw error;
-        }
-      });
-    });
-    return context;
-  });
-  try {
-    const vectors = JSON.parse(
-      await readFile(
-        new URL(
-          "../../../contracts/reporting/fixtures/mermaid-source.v4.json",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    ) as {
-      cases: {
-        diagram: { edges: { direction: string }[] };
-        source_lines: string[];
-        visible_labels: string[];
-      }[];
-    };
-    const cases = [
-      {
-        source: flowchart,
-        labels: ["First node", "Second node", "Connects"],
-        arrowheads: 1,
-      },
-      {
-        source: sequence,
-        labels: ["First participant", "Second participant", "Message"],
-        arrowheads: 1,
-      },
-      ...vectors.cases.map((vector) => ({
-        source: vector.source_lines.join("\n"),
-        labels: vector.visible_labels,
-        arrowheads: vector.diagram.edges.reduce(
-          (count, edge) =>
-            count +
-            (edge.direction === "undirected"
-              ? 0
-              : edge.direction === "bidirectional"
-                ? 2
-                : 1),
-          0,
-        ),
-      })),
-    ];
-    for (const { source, labels: expectedLabels, arrowheads } of cases) {
-      const outputs: Buffer[] = [];
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const result = await renderMermaidSVG(source, {
-          browser,
-          endpoint: {
-            port: await allocatePort(),
-            portRef: "render-loopback-1",
-          },
+it(
+  "Mermaid renders real graph geometry arrowheads and sequence messages as repeatable passive SVG",
+  async () => {
+    const browser = await chromium.launch();
+    const diagnostics: string[] = [];
+    const newContext = browser.newContext.bind(browser);
+    // Only authored synthetic fixtures enter this diagnostic capture. Production
+    // never retains vendor exceptions containing incident text or destinations.
+    vi.spyOn(browser, "newContext").mockImplementation(async (options) => {
+      const context = await newContext(options);
+      context.on("page", (page) => {
+        const evaluate = page.evaluate.bind(page);
+        vi.spyOn(page, "evaluate").mockImplementation(async (...args) => {
+          try {
+            return await evaluate(...args);
+          } catch (error) {
+            diagnostics.push(String(error).slice(0, 1000));
+            diagnostics.push(
+              JSON.stringify(
+                await evaluate(() =>
+                  [...document.querySelectorAll("#output svg *")]
+                    .filter((element) => {
+                      const style = getComputedStyle(element);
+                      return (
+                        style.filter !== "none" ||
+                        style.clipPath !== "none" ||
+                        style.maskImage !== "none"
+                      );
+                    })
+                    .slice(0, 8)
+                    .map((element) => ({
+                      tag: element.tagName,
+                      filter: getComputedStyle(element).filter,
+                      clip: getComputedStyle(element).clipPath,
+                      mask: getComputedStyle(element).maskImage,
+                      attrs: [...element.attributes].map(({ name, value }) => [
+                        name,
+                        value,
+                      ]),
+                    })),
+                ),
+              ),
+            );
+
+            throw error;
+          }
         });
-        expect(result.browserObservations.length).toBeGreaterThan(0);
-        expect(
-          result.browserObservations.every(
-            (item) => item.allowed && item.stage === "mermaid_render",
-          ),
-        ).toBe(true);
-        outputs.push(result.bytes);
-      }
-      expect(outputs[0]).toEqual(outputs[1]);
-      const svg = outputs[0]?.toString("utf8") ?? "";
-
-      const page = await browser.newPage();
-      try {
-        await page.setContent(svg);
-        expect(await page.locator("svg").count()).toBe(1);
-        expect(
-          await page.locator("style, marker, foreignObject, script").count(),
-        ).toBe(0);
-        // Reference syntax in inert label text is allowed. Inspect the actual
-        // element attributes, which can grant rendering capabilities.
-        expect(
-          await page
-            .locator("svg, svg *")
-            .evaluateAll((elements) =>
-              elements.flatMap((element) =>
-                [...element.attributes]
-                  .filter(
-                    (attribute) =>
-                      [
-                        "style",
-                        "class",
-                        "id",
-                        "marker-end",
-                        "stroke-dasharray",
-                      ].includes(attribute.name) ||
-                      /url\(/iu.test(attribute.value),
-                  )
-                  .map((attribute) => attribute.name),
-              ),
+      });
+      return context;
+    });
+    try {
+      for (const {
+        source,
+        labels: expectedLabels,
+        arrowheads,
+      } of renderCases) {
+        const outputs: Buffer[] = [];
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const result = await renderMermaidSVG(source, {
+            browser,
+            endpoint: {
+              port: await allocatePort(),
+              portRef: "render-loopback-1",
+            },
+          });
+          expect(result.browserObservations.length).toBeGreaterThan(0);
+          expect(
+            result.browserObservations.every(
+              (item) => item.allowed && item.stage === "mermaid_render",
             ),
-        ).toEqual([]);
-        expect(
-          await page.locator("svg path, svg line").count(),
-        ).toBeGreaterThanOrEqual(1 + arrowheads);
-        expect(await page.locator('g[transform*="rotate("]').count()).toBe(
-          arrowheads,
-        );
-        expect(await page.locator("svg text").count()).toBeGreaterThanOrEqual(
-          expectedLabels.length,
-        );
-        // Mermaid uses positioned word spans. Join leaf text with its rendered
-        // word boundaries rather than treating adjacent SVG text nodes as prose.
-        const labels = (
-          await page
-            .locator("svg text:not(:has(tspan)), svg tspan:not(:has(tspan))")
-            .allTextContents()
-        )
-          .join(" ")
-          .replace(/\s+/g, " ");
-        for (const label of expectedLabels) expect(labels).toContain(label);
-      } finally {
-        await page.close();
+          ).toBe(true);
+          outputs.push(result.bytes);
+        }
+        expect(outputs[0]).toEqual(outputs[1]);
+        const svg = outputs[0]?.toString("utf8") ?? "";
+
+        const page = await browser.newPage();
+        try {
+          await page.setContent(svg);
+          expect(await page.locator("svg").count()).toBe(1);
+          expect(
+            await page.locator("style, marker, foreignObject, script").count(),
+          ).toBe(0);
+          // Reference syntax in inert label text is allowed. Inspect the actual
+          // element attributes, which can grant rendering capabilities.
+          expect(
+            await page
+              .locator("svg, svg *")
+              .evaluateAll((elements) =>
+                elements.flatMap((element) =>
+                  [...element.attributes]
+                    .filter(
+                      (attribute) =>
+                        [
+                          "style",
+                          "class",
+                          "id",
+                          "marker-end",
+                          "stroke-dasharray",
+                        ].includes(attribute.name) ||
+                        /url\(/iu.test(attribute.value),
+                    )
+                    .map((attribute) => attribute.name),
+                ),
+              ),
+          ).toEqual([]);
+          expect(
+            await page.locator("svg path, svg line").count(),
+          ).toBeGreaterThanOrEqual(1 + arrowheads);
+          expect(await page.locator('g[transform*="rotate("]').count()).toBe(
+            arrowheads,
+          );
+          expect(await page.locator("svg text").count()).toBeGreaterThanOrEqual(
+            expectedLabels.length,
+          );
+          // Mermaid uses positioned word spans. Join leaf text with its rendered
+          // word boundaries rather than treating adjacent SVG text nodes as prose.
+          const labels = (
+            await page
+              .locator("svg text:not(:has(tspan)), svg tspan:not(:has(tspan))")
+              .allTextContents()
+          )
+            .join(" ")
+            .replace(/\s+/g, " ");
+          for (const label of expectedLabels) expect(labels).toContain(label);
+        } finally {
+          await page.close();
+        }
       }
+    } catch (error) {
+      throw new Error(
+        `${String(error)}; synthetic fixture diagnostics: ${diagnostics.join("; ")}`,
+      );
+    } finally {
+      await browser.close();
     }
-  } catch (error) {
-    throw new Error(
-      `${String(error)}; synthetic fixture diagnostics: ${diagnostics.join("; ")}`,
-    );
-  } finally {
-    await browser.close();
-  }
-}, 30_000);
+  },
+  renderCaseBudgetMS * renderCases.length,
+);
 
 it("passive SVG construction rejects active elements references and unsupported effects", async () => {
   const browser = await chromium.launch();

@@ -933,8 +933,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_work_estimates.v2",
-      "path": "tools/schemas/cartulary.harness_work_estimates.v2.schema.json",
+      "schema_id": "cartulary.harness_work_estimates.v3",
+      "path": "tools/schemas/cartulary.harness_work_estimates.v3.schema.json",
       "classification": "owner_input",
       "producer": "estimate-refresh maintenance command",
       "validation": "harness.json_shape_check"

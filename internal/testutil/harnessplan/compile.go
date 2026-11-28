@@ -553,10 +553,13 @@ type contract struct {
 }
 
 // item is an indivisible piece of a runner invocation: a Go row, or every
-// selected row of one Vitest file (the runner runs a file once).
+// selected row of one Vitest file (the runner runs a file once). memory is
+// its rows' share of a unit generation; a row without one adds nothing, and
+// its unit claims the whole unit-generation claim.
 type item struct {
-	rows []*Row
-	work int64
+	rows   []*Row
+	work   int64
+	memory int64
 }
 
 func (c *compiler) contract(row *Row) (contract, error) {
@@ -630,6 +633,9 @@ func (c *compiler) items(rows []*Row, contract contract) []item {
 		}
 		byKey[key].rows = append(byKey[key].rows, row)
 		byKey[key].work += c.estimate(*row)
+		if share, ok := c.in.generationShare(row.RowID); ok {
+			byKey[key].memory += share
+		}
 	}
 	items := make([]item, len(keys))
 	for i, key := range keys {
@@ -639,35 +645,65 @@ func (c *compiler) items(rows []*Row, contract contract) []item {
 }
 
 // split divides a contract group into balanced units: as many as the work
-// needs at the runner's target size, filled longest-first into the
-// least-loaded unit.
+// needs at the runner's target size and, for units on their own PostgreSQL
+// generation, as many as their memory needs within the generation budget,
+// each item placed largest-first where it least raises the larger of the two
+// loads. Units are added until no unit of more than one item exceeds the
+// memory budget (TH-HARNESS-REQ-865).
 func (c *compiler) split(items []item, contract contract) [][]*Row {
-	target := c.unitTarget(contract)
-	slices.SortFunc(items, func(a, b item) int {
-		return cmp.Or(cmp.Compare(b.work, a.work), strings.Compare(a.rows[0].RowID, b.rows[0].RowID))
-	})
-	total := int64(0)
-	for _, item := range items {
-		total += item.work
+	target, budget := c.unitTarget(contract), c.memoryBudget(contract)
+	size := func(work, memory int64) float64 {
+		load := float64(work) / float64(target)
+		if budget > 0 {
+			load = max(load, float64(memory)/float64(budget))
+		}
+		return load
 	}
-	count := max(1, int((total+target-1)/target))
+	slices.SortFunc(items, func(a, b item) int {
+		return cmp.Or(cmp.Compare(size(b.work, b.memory), size(a.work, a.memory)), strings.Compare(a.rows[0].RowID, b.rows[0].RowID))
+	})
+	var work, memory int64
+	for _, item := range items {
+		work, memory = work+item.work, memory+item.memory
+	}
+	count := max(1, int((work+target-1)/target))
+	if budget > 0 {
+		count = max(count, int((memory+budget-1)/budget))
+	}
 	if contract.Alone != "" {
 		count = len(items)
 	}
-	count = min(count, len(items))
-	bins := make([][]*Row, count)
-	loads := make([]int64, count)
-	for _, item := range items {
-		least := 0
-		for i := range loads {
-			if loads[i] < loads[least] {
-				least = i
+	for count = min(count, len(items)); ; count++ {
+		bins := make([][]*Row, count)
+		works, memories, sizes := make([]int64, count), make([]int64, count), make([]int, count)
+		for _, item := range items {
+			least := 0
+			for i := range bins {
+				if size(works[i]+item.work, memories[i]+item.memory) < size(works[least]+item.work, memories[least]+item.memory) {
+					least = i
+				}
 			}
+			bins[least] = append(bins[least], item.rows...)
+			works[least], memories[least], sizes[least] = works[least]+item.work, memories[least]+item.memory, sizes[least]+1
 		}
-		bins[least] = append(bins[least], item.rows...)
-		loads[least] += item.work
+		over := false
+		for i := range bins {
+			over = over || budget > 0 && sizes[i] > 1 && memories[i] > budget
+		}
+		if !over || count == len(items) {
+			return bins
+		}
 	}
-	return bins
+}
+
+// memoryBudget is the share of memory the rows of one unit generation may
+// project: the generation budget less the base. Units without their own
+// generation, or before a base is observed, have none.
+func (c *compiler) memoryBudget(contract contract) int64 {
+	if contract.PostgresIsolation != "exclusive" || !slices.Contains(contract.ServiceDependencies, "postgres") || len(c.in.Estimates.GenerationBase) == 0 {
+		return 0
+	}
+	return max(0, c.in.generationBudget()-slices.Max(c.in.Estimates.GenerationBase))
 }
 
 // unitTarget is a unit's size target: the Vitest invocation policy's, or for

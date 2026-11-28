@@ -1405,8 +1405,8 @@ not retried. Direct and aggregate selectors use identical group IDs,
 dependencies, profiles, and evidence outputs.
 
 All ordinary browser cohorts MUST use the `browser_ordinary` resource profile,
-with claims of three CPU tokens, one I/O token, 640 MiB, two PostgreSQL
-tokens and four processes. One CPU token is the pooled renderer the cohort
+with claims of three CPU tokens, one I/O token, 640 MiB, one PostgreSQL
+token and four processes. One CPU token is the pooled renderer the cohort
 drives, measured at about one core per running cohort (amended 2026-11-28,
 G67); `browser_measurement_quiet` claims it the same way. `browser_functional` and `browser_isolated` are retired
 without aliases. State scope determines cohort isolation independently of resource
@@ -9532,7 +9532,7 @@ Authored duration estimates are advisory scheduler planning data only. They MUST
 Every work unit MUST carry a positive `estimated_work_ms`. A row's planning
 estimate is the median of its observations in
 `tools/harness_work_estimates.json` (schema
-`cartulary.harness_work_estimates.v2`). Until a row is observed, its planning
+`cartulary.harness_work_estimates.v3`). Until a row is observed, its planning
 estimate is its own reviewed `estimated_work_ms` when the catalog row declares
 one, and otherwise the exact evidence-class estimate in the authored work-graph
 owner, per selected test for a Playwright row. An operation's planning estimate
@@ -9568,18 +9568,32 @@ split or reclassified. Entries for rows or operations that no longer exist are
 ignored by planning and removed by the next refresh.
 
 A unit generation's PostgreSQL resident memory is planned from the file's
-`generations`: per row, the peak footprints in MiB of the unit generations that
-ran it, three most recent kept (amended 2026-11-27, G65). When every row of a
-unit has an observation, the unit's generation claims three halves of the
-largest, rounded up to 256 MB and held between 768 MB and the topology's
-`postgres` claim, whose other quantities it keeps; otherwise it claims the
-`postgres` claim whole. Rows rather than units key the observations because
-packing changes unit identities, and a generation's peak follows its largest
-test, so the rows' maximum carries over when rows are repacked. A refresh folds
-each footprint of the run (TH-HARNESS-REQ-804) whose allocation is the unit
-generation of a unit not served from the cache into every catalog row that unit
-ran; footprints of shared, browser-stack and measurement generations size their
-topology profiles by review instead, and a malformed footprint refuses the run. A missing estimate,
+`generations` and `generation_base` (amended 2026-11-27 and 2026-11-28, G65).
+A unit generation keeps every database its tests create until it retires
+(TH-HARNESS-REQ-357), so its memory is a base, a generation's memory with no
+work, plus what each of its rows adds. A refresh takes the run's base as the
+peak footprint (TH-HARNESS-REQ-804) of its smallest unit generation of a unit
+not served from the cache, and divides each such unit generation's peak above
+that base among the unit's catalog rows by the durations its runner reported,
+as it divides runner time. `generation_base` keeps the three most recent bases
+and `generations` each row's three most recent shares, in MiB. A unit
+generation whose rows all have a share, once a base is observed, claims three
+halves of the largest base plus each row's largest share, rounded up to 256 MB
+and held between 768 MB and the topology's `postgres` claim, whose other
+quantities it keeps; otherwise it claims the `postgres` claim whole. Rows
+rather than units key the shares because packing changes unit identities, and
+shares add, so they carry over when rows are repacked. Footprints of shared,
+browser-stack and measurement generations size their topology profiles by
+review instead, and a malformed footprint refuses the run.
+
+Units on their own PostgreSQL generation are packed in two dimensions: work
+against the packing target, and their rows' shares against the generation
+budget, two thirds of the `postgres` claim less the base, so a unit's claim
+keeps its margin under the cap. The packer opens as many units as either
+dimension needs, places each item largest-first where it least raises the
+larger of its two normalized loads, and adds units until no unit of more than
+one item exceeds the memory budget. A row without a share adds nothing to a
+unit's memory load, and its unit claims the `postgres` claim whole. A missing estimate,
 aggregate target envelope copied into multiple units, or fixture interval
 attributed as command work is invalid planning input and MUST fail graph
 compilation rather than silently selecting a legacy default.
@@ -12308,7 +12322,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-165 | REQ-869 | A Go event stream with nested subtests, pass, fail and skip, a package elapsed time, a secret-bearing name, an over-length name and more than 4,096 observations; basic and off modes; an unwritable destination | Basic mode retains one schema-valid file per Go unit with every observation in terminal-event order, the redacted name and exact omission counts; off mode writes none; row outcomes are identical with and without the file | A missing or reordered observation, invented duration, truncated or unredacted name, file in off mode, or row outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-166 | REQ-870 | A failing and a passing unit; a pressure source that reports all, some or none of the resources; a window longer than the ring; an unwritable log directory | The failing unit retains one schema-valid window covering 30 s before its admission to its terminal instant, with nulls for unreported resources and `truncated` when the ring had rolled; the passing unit retains none; outcomes are identical when writing fails | A window for a passing unit, a sample outside the window, an invented share, or an outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-167 | REQ-871 | A stress run of a slice that passes, one whose second repetition fails, an invalid `REPEAT` or `LOAD`, an existing run ID, and cancellation | Each repetition is a distinct slice run with the cache off; every repetition runs after a failure; the summary validates and lists each repetition; the exit status is `0` only when all passed; usage errors exit `2` before any run; the load process ends with the command | A skipped repetition after a failure, a reused run root, a load process that survives the command, or a zero exit with a failed repetition fails. |
-| TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history; generation footprints of the two-row unit, the cached unit and the shared generation, and a malformed footprint; units whose rows have full, partial and no footprint observations | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior; the two-row unit's footprint is folded into both its rows and no other footprint is, the malformed footprint refuses the run, and a unit generation claims three halves of its rows' largest footprint in 256 MB steps between 768 MB and the topology claim, or the topology claim whole when a row is unobserved | A cached or retired unit observed, an unbounded history, a refused run written, a plan or audit that ignores an observation, a non-unit footprint folded, or a generation claim outside its bounds or sized from a partial observation fails. |
+| TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history; generation footprints of the two-row unit, a one-row unit, the cached unit and the shared generation, and a malformed footprint; units whose rows have full, partial and no share observations, with and without a base; rows whose shares together exceed the generation budget | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior; the smallest uncached unit generation is the base, the two-row unit's peak above it is shared between its rows by duration and no other footprint is folded, the malformed footprint refuses the run, a unit generation claims three halves of the base plus its rows' shares in 256 MB steps between 768 MB and the topology claim, or the topology claim whole without a base or a row's share, and rows whose shares exceed the generation budget together are packed into more units | A cached or retired unit observed, an unbounded history, a refused run written, a plan or audit that ignores an observation, a non-unit footprint folded, a share attributed by anything but duration, a generation claim outside its bounds or sized from a partial observation, or a multi-row unit over the memory budget fails. |
 | TH-HARNESS-AC-169 | REQ-806 | A test-owned cohort and a shared-state cohort, each with a failing first test; a stack that fails during a test-owned cohort | The test-owned cohort runs every selected test, reports each outcome, fails and quarantines its allocation at release; the shared-state cohort stops at the first failure and accounts for its unexecuted rows; tests after a stack failure fail at their own fixture setup | A test-owned cohort that stops at its first failure, a shared-state cohort that continues, or a cohort that waits on test deadlines after its stack failed fails. |
 | TH-HARNESS-AC-170 | REQ-802 | A selection with more ordinary browser cohorts than `BROWSER_LANES`, one measurement cohort, and a capacity snapshot | The plan's capacities include `browser_lane` equal to the lane limit; each ordinary cohort claims one lane and its own unit-scoped stack and stack cluster, needs no other browser cohort, and takes no browser session lock; the measurement cohort keeps its quiet exclusive lock and graph-scoped snapshot cluster | A chained browser cohort, a lane claim on a measurement cohort, a shared ordinary stack, or more running ordinary cohorts than lanes fails. |
 | TH-HARNESS-AC-171 | REQ-872 | Go units over passing, failing, skipped and missing tests; typed setup and cleanup markers, split, interleaved, truncated, oversized, conflicting and malformed; an event line over 1 MiB; a race context, a shuffle seed and an independent-module package; an unregistered module package; a relative machine cache path; a nonzero exit with every row passed | Each unit's command is the exact `go test` invocation and its Go bindings carry their tests; rows settle by the adapter's rules and publish as schema-valid results; the unit passes exactly when its rows pass; failure detail and `[FAIL]` lines reach the error log; a passing unit retains no standard output; the master key reaches only the repository's own module; durations are written under basic diagnostics | A broadened `-run`, a missing `-race`, `-shuffle` or `-C`, a row settled from an over-bound stream, a malformed marker attributed, a unit outcome that disagrees with its rows, or a module receiving the test key fails. |

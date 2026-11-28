@@ -66,8 +66,8 @@ func TestObservedEstimates(t *testing.T) {
 			goRows = append(goRows, row)
 		}
 	}
-	if len(goRows) < 3 {
-		t.Fatal("fixture needs three unestimated Go unit rows")
+	if len(goRows) < 4 {
+		t.Fatal("fixture needs four unestimated Go unit rows")
 	}
 	a, b := goRows[0], goRows[1]
 	go_ := in.Owner.InvocationPolicies[RunnerGo]
@@ -160,15 +160,15 @@ func TestObservedEstimates(t *testing.T) {
 		}
 	})
 
-	t.Run("a unit generation is sized from its rows' largest footprint", func(t *testing.T) {
+	t.Run("a unit generation claims three halves of its base and its rows' shares", func(t *testing.T) {
 		saved := in.Estimates
 		defer func() { in.Estimates = saved }()
 		topology := in.Topology.PhysicalResourceClaims["postgres"]
 		in.Estimates = Estimates{SchemaID: EstimatesSchema, Rows: map[string][]int64{}, Operations: map[string][]int64{},
-			Generations: map[string][]int64{a.RowID: {300, 900, 400}, b.RowID: {100}, goRows[2].RowID: {10_000}}}
+			Generations: map[string][]int64{a.RowID: {300, 600, 400}, b.RowID: {100}, goRows[2].RowID: {10_000}}, GenerationBase: []int64{150, 160}}
 		sized := in.generationClaims([]string{a.RowID, b.RowID})
 		if sized["memory_mb"] != 1536 {
-			t.Fatalf("three halves of 900 MiB rounded to the step: %d", sized["memory_mb"])
+			t.Fatalf("three halves of 160 + 600 + 100 MiB rounded to the step: %d", sized["memory_mb"])
 		}
 		for resource, quantity := range topology {
 			if resource != "memory_mb" && sized[resource] != quantity {
@@ -190,21 +190,27 @@ func TestObservedEstimates(t *testing.T) {
 		}
 		for _, rows := range [][]string{nil, {a.RowID, unobserved}} {
 			if got := in.generationClaims(rows); !maps.Equal(got, topology) {
-				t.Fatalf("rows %v without every footprint take the topology claim: %v", rows, got)
+				t.Fatalf("rows %v without every share take the topology claim: %v", rows, got)
 			}
 		}
-		if topology["memory_mb"] != 4352 {
-			t.Fatal("sizing changed the loaded topology")
+		in.Estimates.GenerationBase = nil
+		if got := in.generationClaims([]string{a.RowID}); !maps.Equal(got, topology) {
+			t.Fatalf("without a base a generation takes the topology claim: %v", got)
+		}
+		if topology["memory_mb"] != 4352 || in.generationBudget() != 2901 {
+			t.Fatalf("sizing changed the loaded topology, or its budget is %d", in.generationBudget())
 		}
 	})
 
-	t.Run("a run folds each unit generation's footprint into every row it ran", func(t *testing.T) {
+	t.Run("a run shares each unit generation's memory above its base by duration", func(t *testing.T) {
 		units := []map[string]any{
 			{"unit_id": "go:pair", "kind": "runner", "row_bindings": []map[string]string{{"row_id": a.RowID, "runner": "go"}, {"row_id": b.RowID, "runner": "go"}}},
-			{"unit_id": "go:cached", "kind": "runner", "row_bindings": []map[string]string{{"row_id": goRows[2].RowID, "runner": "go"}}},
+			{"unit_id": "go:small", "kind": "runner", "row_bindings": []map[string]string{{"row_id": goRows[2].RowID, "runner": "go"}}},
+			{"unit_id": "go:cached", "kind": "runner", "row_bindings": []map[string]string{{"row_id": goRows[3].RowID, "runner": "go"}}},
 		}
-		events := slices.Concat(runner("go:pair", "phase:1", 0, overhead+4000), []map[string]any{{"event": "cache_hit", "unit_id": "go:cached", "monotonic_ms": 5}})
-		run := retainedRun(t, units, events, map[string]int64{a.RowID: 1000, b.RowID: 3000, goRows[2].RowID: 50})
+		events := slices.Concat(runner("go:pair", "phase:1", 0, overhead+4000), runner("go:small", "phase:2", 0, overhead+100),
+			[]map[string]any{{"event": "cache_hit", "unit_id": "go:cached", "monotonic_ms": 5}})
+		run := retainedRun(t, units, events, map[string]int64{a.RowID: 1000, b.RowID: 3000, goRows[2].RowID: 50, goRows[3].RowID: 10})
 		footprint := func(suite, ref string, peak int64) {
 			dir := filepath.Join(run, "_shared", "test-services", suite)
 			data, _ := json.Marshal(map[string]any{"schema_id": GenerationFootprintSchema, "allocation_ref": ref, "data_capacity_bytes": 1 << 30, "memory_peak_bytes": peak})
@@ -215,18 +221,22 @@ func TestObservedEstimates(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		footprint("one", "postgres:unit:go:pair", 700<<20+1)
-		footprint("two", "postgres:unit:go:cached", 900<<20)
-		footprint("three", "postgres:shared", 2000<<20)
+		footprint("one", "postgres:unit:go:pair", 950<<20)
+		footprint("two", "postgres:unit:go:small", 150<<20)
+		footprint("three", "postgres:unit:go:cached", 100<<20)
+		footprint("four", "postgres:shared", 2000<<20)
 		folded, report, err := in.foldRun(run)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !slices.Equal(folded.Generations[a.RowID], []int64{701}) || !slices.Equal(folded.Generations[b.RowID], []int64{701}) ||
-			folded.Generations[goRows[2].RowID] != nil || report.Generations != 2 {
-			t.Fatalf("generations %v report %+v", folded.Generations, report)
+		// The base is the smallest uncached unit generation; the pair's
+		// 800 MiB above it divides one to three by the rows' durations.
+		if !slices.Equal(folded.GenerationBase, []int64{150}) || !slices.Equal(folded.Generations[a.RowID], []int64{200}) ||
+			!slices.Equal(folded.Generations[b.RowID], []int64{600}) || !slices.Equal(folded.Generations[goRows[2].RowID], []int64{1}) ||
+			folded.Generations[goRows[3].RowID] != nil || report.Generations != 3 {
+			t.Fatalf("base %v generations %v report %+v", folded.GenerationBase, folded.Generations, report)
 		}
-		footprint("four", "", 1)
+		footprint("five", "", 1)
 		if _, _, err := in.foldRun(run); !errors.Is(err, ErrRefresh) || !strings.Contains(err.Error(), "footprint") {
 			t.Fatalf("a malformed footprint was folded: %v", err)
 		}
@@ -234,7 +244,7 @@ func TestObservedEstimates(t *testing.T) {
 
 	t.Run("the written document is canonical, sorted and strict", func(t *testing.T) {
 		data, err := canonicalEstimates(Estimates{SchemaID: EstimatesSchema, Runs: []FoldedRun{{RunID: "r", Target: "check", SourceDigest: "sha256:" + strings.Repeat("b", 64)}},
-			Rows: map[string][]int64{"z.row": {2}, "a.row": {1, 3}}, Operations: map[string][]int64{}, Generations: map[string][]int64{"g.row": {768}}})
+			Rows: map[string][]int64{"z.row": {2}, "a.row": {1, 3}}, Operations: map[string][]int64{}, Generations: map[string][]int64{"g.row": {768}}, GenerationBase: []int64{150}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -242,7 +252,7 @@ func TestObservedEstimates(t *testing.T) {
 			t.Fatal(err)
 		}
 		if strings.Index(string(data), `"a.row"`) > strings.Index(string(data), `"z.row"`) || !strings.Contains(string(data), "\n    \"a.row\": [1,3],\n") ||
-			!strings.Contains(string(data), "\"generations\": {\n    \"g.row\": [768]\n  }") {
+			!strings.Contains(string(data), "\"generations\": {\n    \"g.row\": [768]\n  },\n  \"generation_base\": [150]\n}\n") {
 			t.Fatalf("document %s", data)
 		}
 	})

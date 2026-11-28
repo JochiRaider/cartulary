@@ -25,54 +25,80 @@ import (
 // the source tree stays the plan's only input.
 const (
 	estimatesPath   = "tools/harness_work_estimates.json"
-	EstimatesSchema = "cartulary.harness_work_estimates.v2"
+	EstimatesSchema = "cartulary.harness_work_estimates.v3"
 	// maxObservations bounds each key's history; the estimate is its median.
 	maxObservations = 3
 	// maxFoldedRuns bounds the provenance list that refuses a run twice.
 	maxFoldedRuns = 20
 )
 
-// Estimates is the observed-estimates document. Generations holds, per row,
-// the memory footprints in MiB of the unit generations that ran it
-// (TH-HARNESS-REQ-865, G65).
+// Estimates is the observed-estimates document. A unit generation keeps every
+// database its tests create until it retires, so its memory is a base plus
+// what each row adds: Generations holds, per row, its share in MiB of the
+// memory its unit generations held above their base, and GenerationBase the
+// base of recent folded runs (TH-HARNESS-REQ-865, G65).
 type Estimates struct {
-	SchemaID    string             `json:"schema_id"`
-	Runs        []FoldedRun        `json:"runs"`
-	Rows        map[string][]int64 `json:"rows"`
-	Operations  map[string][]int64 `json:"operations"`
-	Generations map[string][]int64 `json:"generations"`
+	SchemaID       string             `json:"schema_id"`
+	Runs           []FoldedRun        `json:"runs"`
+	Rows           map[string][]int64 `json:"rows"`
+	Operations     map[string][]int64 `json:"operations"`
+	Generations    map[string][]int64 `json:"generations"`
+	GenerationBase []int64            `json:"generation_base"`
 }
 
-// Generation claims are sized in these steps, with this floor, and a margin
-// of three halves over the largest observed footprint.
+// Generation claims are sized in these steps, with this floor, at three
+// halves of a unit generation's projected footprint.
 const (
 	generationStepMB  = 256
 	generationFloorMB = 768
 )
 
-// generationClaims are a unit generation's resident claims. When every row
-// the unit runs has an observed footprint, memory is three halves of the
-// largest, rounded up to the step and held between the floor and the
-// topology's unit-generation claim, whose remaining claims it keeps.
-// Otherwise the unit takes that claim whole. Rows rather than units key the
-// observations because packing changes unit identities; a generation's peak
-// follows its largest test and its bounded WAL, so the rows' maximum carries
-// over when rows are repacked.
+// projectedFootprint is the memory a unit generation of rowIDs is expected to
+// hold: the largest recent base plus each row's largest recent share. It is
+// unknown without a base or for a row without a share.
+func (in *Inputs) projectedFootprint(rowIDs []string) (int64, bool) {
+	if len(in.Estimates.GenerationBase) == 0 || len(rowIDs) == 0 {
+		return 0, false
+	}
+	footprint := slices.Max(in.Estimates.GenerationBase)
+	for _, id := range rowIDs {
+		share, ok := in.generationShare(id)
+		if !ok {
+			return 0, false
+		}
+		footprint += share
+	}
+	return footprint, true
+}
+
+// generationShare is a row's planning share of a unit generation's memory.
+func (in *Inputs) generationShare(rowID string) (int64, bool) {
+	observed := in.Estimates.Generations[rowID]
+	if len(observed) == 0 {
+		return 0, false
+	}
+	return slices.Max(observed), true
+}
+
+// generationBudget is the largest projected footprint whose claim keeps its
+// margin within the topology's unit-generation claim; the packer keeps every
+// unit generation of more than one row within it.
+func (in *Inputs) generationBudget() int64 {
+	return in.Topology.PhysicalResourceClaims["postgres"]["memory_mb"] * 2 / 3
+}
+
+// generationClaims are a unit generation's resident claims: the topology's
+// unit-generation claim, with memory three halves of the projected footprint,
+// rounded up to the step and held between the floor and that claim, when the
+// footprint is known. Rows rather than units key the shares because packing
+// changes unit identities; shares add, so they carry over when rows are
+// repacked.
 func (in *Inputs) generationClaims(rowIDs []string) map[string]int64 {
 	claims := maps.Clone(in.Topology.PhysicalResourceClaims["postgres"])
-	if len(rowIDs) == 0 {
-		return claims
+	if footprint, ok := in.projectedFootprint(rowIDs); ok {
+		sized := (footprint*3/2 + generationStepMB - 1) / generationStepMB * generationStepMB
+		claims["memory_mb"] = min(claims["memory_mb"], max(generationFloorMB, sized))
 	}
-	var largest int64
-	for _, id := range rowIDs {
-		observed := in.Estimates.Generations[id]
-		if len(observed) == 0 {
-			return claims
-		}
-		largest = max(largest, slices.Max(observed))
-	}
-	sized := (largest*3/2 + generationStepMB - 1) / generationStepMB * generationStepMB
-	claims["memory_mb"] = min(claims["memory_mb"], max(generationFloorMB, sized))
 	return claims
 }
 
@@ -138,6 +164,9 @@ func (e *Estimates) validate() error {
 	}
 	if len(e.Runs) > maxFoldedRuns {
 		return fmt.Errorf("at most %d folded runs", maxFoldedRuns)
+	}
+	if len(e.GenerationBase) > maxObservations || slices.ContainsFunc(e.GenerationBase, func(value int64) bool { return value <= 0 }) {
+		return fmt.Errorf("generation_base: at most %d positive observations", maxObservations)
 	}
 	return nil
 }
@@ -245,7 +274,8 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 	if err != nil {
 		return reject("%s events: %v", runDir, err)
 	}
-	estimates := Estimates{SchemaID: EstimatesSchema, Runs: slices.Clone(in.Estimates.Runs), Rows: maps.Clone(in.Estimates.Rows), Operations: maps.Clone(in.Estimates.Operations), Generations: maps.Clone(in.Estimates.Generations)}
+	estimates := Estimates{SchemaID: EstimatesSchema, Runs: slices.Clone(in.Estimates.Runs), Rows: maps.Clone(in.Estimates.Rows), Operations: maps.Clone(in.Estimates.Operations),
+		Generations: maps.Clone(in.Estimates.Generations), GenerationBase: slices.Clone(in.Estimates.GenerationBase)}
 	if estimates.Rows == nil {
 		estimates.Rows = map[string][]int64{}
 	}
@@ -260,6 +290,7 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 		entries[key] = history[max(0, len(history)-maxObservations):]
 	}
 	report := RefreshReport{RunID: plan.Manifest.RunID}
+	rowDurations := map[string][]int64{}
 	for _, unit := range plan.Graph.Units {
 		elapsed, ran := runner[unit.ID]
 		if !ran || cached[unit.ID] {
@@ -281,6 +312,7 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 			continue
 		}
 		durations := make([]int64, len(unit.RowBindings))
+		rowDurations[unit.ID] = durations
 		total := int64(0)
 		for i, binding := range unit.RowBindings {
 			var result struct {
@@ -306,19 +338,42 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 			report.Rows++
 		}
 	}
-	// Each unit generation's footprint is observed for every row it ran.
+	// A unit generation's memory above the run's base, its smallest unit
+	// generation, is shared among the unit's rows by the durations its
+	// runner reported, as its runner time is.
 	footprints, err := generationFootprints(runDir)
 	if err != nil {
 		return reject("%s footprints: %v", runDir, err)
 	}
+	peaks := map[string]int64{}
 	for _, unit := range plan.Graph.Units {
-		peak, ok := footprints["postgres:unit:"+unit.ID]
-		if !ok || cached[unit.ID] {
-			continue
+		if peak, ok := footprints["postgres:unit:"+unit.ID]; ok && !cached[unit.ID] && rowDurations[unit.ID] != nil {
+			peaks[unit.ID] = peak
 		}
-		for _, binding := range unit.RowBindings {
-			if _, known := in.rowIndex[binding.RowID]; known {
-				observe(estimates.Generations, binding.RowID, peak)
+	}
+	if len(peaks) != 0 {
+		base := slices.Min(slices.Collect(maps.Values(peaks)))
+		history := append(slices.Clone(estimates.GenerationBase), base)
+		estimates.GenerationBase = history[max(0, len(history)-maxObservations):]
+		for _, unit := range plan.Graph.Units {
+			peak, ok := peaks[unit.ID]
+			if !ok {
+				continue
+			}
+			durations, total := rowDurations[unit.ID], int64(0)
+			for _, duration := range durations {
+				total += duration
+			}
+			excess := peak - base
+			for i, binding := range unit.RowBindings {
+				if _, known := in.rowIndex[binding.RowID]; !known {
+					continue
+				}
+				share := (excess + int64(len(durations)) - 1) / int64(len(durations))
+				if total > 0 {
+					share = (excess*durations[i] + total - 1) / total
+				}
+				observe(estimates.Generations, binding.RowID, share)
 				report.Generations++
 			}
 		}
@@ -479,6 +534,15 @@ func canonicalEstimates(e Estimates) ([]byte, error) {
 		}
 		out.WriteString(map[bool]string{true: "}", false: "\n  }"}[len(keys) == 0])
 	}
+	base, err := json.Marshal(e.GenerationBase)
+	if err != nil {
+		return nil, err
+	}
+	if e.GenerationBase == nil {
+		base = []byte("[]")
+	}
+	out.WriteString(",\n  \"generation_base\": ")
+	out.Write(base)
 	out.WriteString("\n}\n")
 	if _, err := canonicaljson.DecodeStrict(out.Bytes()); err != nil {
 		return nil, err

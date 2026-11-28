@@ -373,6 +373,51 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 	})
 
+	t.Run("unit generations are packed within their memory budget", func(t *testing.T) {
+		saved := inputs.Estimates
+		defer func() { inputs.Estimates = saved }()
+		var rows []*Row
+		for i := range inputs.Catalog.Rows {
+			if row := &inputs.Catalog.Rows[i]; row.Runner == RunnerGo && len(rows) < 4 {
+				rows = append(rows, row)
+			}
+		}
+		inputs.Estimates = Estimates{SchemaID: EstimatesSchema, Rows: map[string][]int64{}, Operations: map[string][]int64{},
+			Generations: map[string][]int64{rows[0].RowID: {1600}, rows[1].RowID: {1500}, rows[2].RowID: {200}}, GenerationBase: []int64{150}}
+		c := &compiler{in: inputs, options: options}
+		generation := contract{Runner: RunnerGo, PostgresIsolation: "exclusive", ServiceDependencies: []string{"postgres"}}
+		budget := c.memoryBudget(generation)
+		if budget != inputs.generationBudget()-150 {
+			t.Fatalf("budget %d", budget)
+		}
+		memory := func(bin []*Row) (total int64) {
+			for _, row := range bin {
+				share, _ := inputs.generationShare(row.RowID)
+				total += share
+			}
+			return total
+		}
+		// The work fits one unit, but the two large shares cannot share one.
+		bins := c.split(c.items(rows, generation), generation)
+		if len(bins) != 2 {
+			t.Fatalf("%d units", len(bins))
+		}
+		for _, bin := range bins {
+			if len(bin) > 1 && memory(bin) > budget {
+				t.Fatalf("a unit of %d rows projects %d MiB against %d", len(bin), memory(bin), budget)
+			}
+		}
+		// Without a generation, or before a base, only work divides units.
+		for _, other := range []contract{{Runner: RunnerGo, PostgresIsolation: "shared", ServiceDependencies: []string{"postgres"}}, generation} {
+			if other.PostgresIsolation == "exclusive" {
+				inputs.Estimates.GenerationBase = nil
+			}
+			if bins := c.split(c.items(rows, other), other); len(bins) != 1 {
+				t.Fatalf("%+v: %d units", other, len(bins))
+			}
+		}
+	})
+
 	t.Run("a Vitest file's rows of one contract share a unit with the runner's preparation", func(t *testing.T) {
 		rows := rowsWhere(func(row Row) bool { return row.Runner == RunnerVitest })
 		graph, err := Compile(inputs, Selection{Rows: rows}, options)
