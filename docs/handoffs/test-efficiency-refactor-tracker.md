@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-3 are done (16.6 to 16.10). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 are done (16.6 to 16.11). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1402,6 +1402,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-2a / G57 | `HARNESS_DIAGNOSTICS=raw`; passing cohorts and Fallow keep only normalized evidence; checkpoint removed once the report parses; browser group result v12, Fallow summary v3 | `p7-2a-seg-regression`, `-contract`, `-adapter`, `-uireview`, `-cmd`, `-ev`, `-browser`, `-browser-raw`, `-fallow`, `-fallow-raw` | Pass. Browser slice 13 to 3.1 MB, Fallow 23 to 2.1 MB (16.8) |
 | 2026-11-27 | P7-2b / G58 | Closed run-root top level enforced by the runtime; fixture copies and test evidence under `unit-artifacts/<unit>/`; Node Network Flow comparisons release inputs after a pass; target-less nested steps stay in their enclosing step; the P7-2a registry entry added | `p7-2b-seg-*` (16 segments and their rechecks), `p7-2-check01` | Pass after the registry fix. `check` root 64 MB with only declared entries (16.9) |
 | 2026-11-27 | P7-3 / G59 | Post-graph time measured after G56 to G58; `ci` projected from its retained composition; no remedy needed | `p7-0-split-check`, `p7-2-check01`, `p6-6-ci04` | `check` 11.1 to 4.5 s outside the graph; `ci` projected 30 to about 6 s, confirmed in P7-6 (16.10) |
+| 2026-11-27 | P7-4 / G60, G64 | Look-ahead reservation over the whole need chain; estimates refreshed from current runs; pool-aware rank (D42); the entry producer's records declared | `p7-4-check01` to `-check03`, `p7-4-ci01`, `-ci02` (cancelled), `-ci03`, segments | `check` 477 s graph (483 s outer); `ci` 1,219 s graph, first cohorts at 5.8 s (16.11) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -5988,6 +5989,7 @@ generation.
 | G61 | Browser lane capacity is a fixed default of 4 with CPU and memory headroom | Measurement, machine inputs, specification | Medium |
 | G62 | Harness PostgreSQL data lives on the virtual disk, which bounds `check` and the Go phase of `ci` | Specification, implementation, tests, machine inputs | High |
 | G63 | The everyday metric, a `check` after a localized change, has not been measured since 2026-11-25 | Measurement | Low |
+| G64 | Rank ignores the pool that bounds the run: bottleneck work and its short gates wait behind side work for CPU (found in P7-4, 16.11) | Specification, implementation, tests | High |
 
 #### G56 Wait-segment churn
 
@@ -6271,6 +6273,7 @@ Section 9 applies.
 | D39 | Look-ahead reservation | Critical-path units only, with a 60 s horizon. **Approved 2026-11-27** |
 | D40 | RAM-backed broker PostgreSQL generations | Adopt through the G62 gate, with unchanged durability settings; reopens the REQ-804 wording on the storage medium. **Approved 2026-11-27** |
 | D41 | Browser lanes | Measure 5 and 6 after G60; adopt through the G61 gate. **Approved 2026-11-27** |
+| D42 | Pool-aware rank (G64) | A unit's rank adds the longer of its downstream path and the bound of the most loaded pool it claims, recomputed at each decision. **Approved 2026-11-27** |
 
 ### 16.6 Baselines and Inventory (P7-0, done)
 
@@ -6587,3 +6590,90 @@ receipt gives the scan interval, and file times give the publication phases.
   remedy runs. A scan independent of the secret count, and scanning at
   publication time, stay unneeded options; G59 records the measurement that
   would reopen them. P7-6's paired `ci` confirms the projection.
+
+### 16.11 Look-Ahead and Pool-Aware Rank (P7-4, done)
+
+- **Look-ahead (G60, D39).** REQ-802 step 5 reserves for imminent work.
+  - A pending unit is imminent when its estimated eligibility falls within
+    60 s. That estimate runs through its whole need chain: a running need
+    ends at its admission plus its estimate, and a pending need starts when
+    its own needs end.
+  - A ready unit that an imminent unit outranks, and that would still run
+    when that unit becomes eligible, waits when admitting it would leave the
+    imminent unit no room then. Room is projected from the plan's
+    capacities, the running units still expected then, and the imminent
+    units reserved before it, highest rank first.
+  - An imminent unit that could not fit even without the candidate reserves
+    nothing, so capacity bounds the reservations: four lanes, four cohorts.
+    Work expected to finish in time is still admitted.
+
+  G60 said "all of whose unfinished needs are running". In `ci` the long Go
+  units are admitted at 1 s, while the cohorts' asset build is still pending,
+  so that rule never fires; hence the whole-chain estimate.
+- **Stale estimates.** The first `ci` with the look-ahead (`p7-4-ci01`)
+  changed nothing, and the cause was the estimates. They were last refreshed
+  from Phase 4 runs, before P6-5's producer reuse. The cohorts' chain
+  carried cold-build costs (`build_report_renderer` 97.8 s against 3.2 s
+  actual, `build_server_harness` 59 s against 2.5 s), so the cohorts looked
+  158 s away. `make estimate-refresh` folded `p7-4-check01` and
+  `p7-4-ci01`. With current estimates the cancelled `p7-4-ci02` started its
+  first four cohorts at 5.4 s instead of 168 s.
+- **Pool-aware rank (G64, D42).** `p7-4-check02` showed what the look-ahead
+  cannot fix:
+  - CPU is truly saturated for `check`'s first 240 s: 19 of 19 tokens
+    claimed, 12 to 17 cores busy.
+  - Rank, the path length alone, put side work ahead of PostgreSQL work for
+    those tokens. One of the eight PostgreSQL slots idled for 80 s, and
+    PostgreSQL units spent about 225 s waiting on CPU alone.
+  - Short gates waited behind long units: `build_operator` 79 to 217 s, and
+    in `ci` `build_server` 421 s. Its dependent then aged less than its
+    peers, ran last, and left a 40 to 50 s single-unit tail.
+
+  REQ-802 step 2 now adds to a unit's work the longer of its downstream path
+  and the bound of the most loaded pool it claims: that pool's remaining
+  estimated work over its capacity, recomputed at each decision. On the real
+  plans the binding pools stand out: PostgreSQL in `check` (470 s, against
+  CPU's 374 s) and browser lanes in `ci` (1,175 s). The bound covers the
+  whole pool, not the pool less the unit's own share; subtracting the share
+  would rank a unit that needs the whole pool below tiny ones. Ancestors
+  still outrank their dependents.
+- **P7-2b correction.** When the runtime itself must be rebuilt, the command
+  entry's producer writes `harness-runtime-build/` before the graph exists.
+  The layout check rejected it (`p7-4-seg-cmd`). It is now a run-level
+  family in the code and in REQ-874.
+- **Results.**
+
+  | Run | Graph | PostgreSQL idle lane-s | Gate CPU wait | First cohorts |
+  | --- | ---: | ---: | ---: | ---: |
+  | `p7-4-check02` (look-ahead, refreshed estimates) | 506 s | 367 | 1,572 s | — |
+  | `p7-4-check03` (and pool-aware rank) | 477 s | 178 | 341 s | — |
+  | `p7-4-ci01` (look-ahead, stale estimates) | 1,307 s | 1,880 | 7,957 s | 168 s |
+  | `p7-4-ci03` (all three) | 1,219 s | 1,022 | 3,528 s | 5.8 s |
+
+  - `check03`: outer 483 s, all eight PostgreSQL slots busy from 5 s. Its
+    critical path now ends with a 2 s unit, not the 50 s tail.
+  - The remaining gate waits all have slack. In `check` two side Go units
+    wait behind PostgreSQL work for `otel_conformance`, which finishes at
+    255 s of 477. In `ci`, `build_server` and the release inventory feed
+    leaf checks done at 588 s of 1,217.
+  - `ci03`: outer 1,227 s. Its 27 cohorts hold 4,665 s of runner time (6%
+    more than `ci01`, within G60's 15%; the refresh re-packed one more
+    cohort). On four lanes from 5.8 s that bounds the run at about 1,172 s;
+    it ended at 1,217 s with 180 idle lane-seconds. So 1,200 s now depends on
+    lanes and PostgreSQL cost, G61 and G62 in P7-5.
+  - 16.10's projection holds for `ci`: a 68 MB root, a 5.0 MB event log and
+    6.8 s outside the graph.
+- **Tests.**
+  - `TestPoolAwareRanks` (new): bottleneck order, longest first within a
+    pool, gate inheritance, and draining.
+  - Two engine cases cover the look-ahead, its horizon and its capacity
+    bound, and `TestRuntimeLookAheadReservation` (new) covers the ledger
+    path.
+  - AC-179 and AC-180 cover REQ-802's two amendments.
+- **Proof.**
+  - Segments: `p7-4-seg-cmd3` (`scheduler_smoke` and `native_runtime`),
+    `p7-4-seg-lintgo2`, `p7-4-seg-stress2` (ten repetitions under mixed
+    load) and `p7-4-seg-contract`.
+  - Then `p7-4-check03` and `p7-4-ci03`, both passing.
+  - `p7-4-ci02` was cancelled at the owner's request with SIGINT to the
+    graph, which drained cleanly; recovery status shows nothing stranded.

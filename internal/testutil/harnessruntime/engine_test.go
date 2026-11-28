@@ -72,6 +72,41 @@ func TestWaitSegmentAttribution(t *testing.T) {
 		t.Fatal(a)
 	}
 }
+func TestPoolAwareRanks(t *testing.T) {
+	// postgres (capacity 2) bounds this graph: 450 ms of its work against
+	// 75 ms per CPU token. gate is a short build that pgDep needs.
+	pgLong, pgShort, side := engineUnit("pg-long", 300), engineUnit("pg-short", 100), engineUnit("side", 150)
+	gate, pgDep := engineUnit("gate", 5), engineUnit("pg-dep", 50, "gate")
+	for _, u := range []*unit{&pgLong, &pgShort, &pgDep} {
+		u.Claims["postgres"] = 1
+	}
+	p := enginePlan(pgLong, pgShort, side, gate, pgDep)
+	p.facts.Capacities["cpu"], p.facts.Capacities["postgres"] = 8, 2
+	states := map[string]string{}
+	for _, u := range p.facts.Graph.Units {
+		states[u.ID] = "pending"
+	}
+	e := &graphEngine{plan: p, byID: map[string]unit{}, admittedAt: map[string]int64{}, result: graphResult{States: states}}
+	for _, u := range p.facts.Graph.Units {
+		e.byID[u.ID] = u
+	}
+	e.computeRanks(0)
+	r := e.ranks
+	// Bottleneck work outranks side work, longer pool work goes first, and
+	// the gate inherits its dependent's pool rank instead of its own 5 ms.
+	if !(r["pg-long"] > r["pg-short"] && r["pg-short"] > r["side"] && r["gate"] > r["side"] && r["gate"] > r["pg-dep"]) {
+		t.Fatal("pool-aware order", r)
+	}
+	if r["pg-short"] != 100+450/2 || r["side"] != 150+605/8 {
+		t.Fatal("pool bounds", r)
+	}
+	// The pool drains as its work runs, so ranks fall with it.
+	e.result.States["pg-long"], e.admittedAt["pg-long"] = "running", 0
+	e.computeRanks(150)
+	if e.ranks["pg-short"] != 100+300/2 {
+		t.Fatal("pool bound did not drain", e.ranks)
+	}
+}
 func TestRuntimeScheduling(t *testing.T) {
 	testConsumerTerminalTransitions(t)
 	t.Run("writable_root_is_shared_while_cpu_and_settlement_remain_accounted", func(t *testing.T) {
@@ -220,6 +255,59 @@ func TestRuntimeScheduling(t *testing.T) {
 		}
 		if err := facts.validate(); err != nil {
 			t.Fatal(err)
+		}
+	})
+	t.Run("look_ahead_reserves_for_imminent_higher_ranked_work", func(t *testing.T) {
+		// cohort needs build and outranks long. While build runs, cohort is
+		// expected at 10 ms; long would outlast that and take the CPU cohort
+		// needs, so it waits until cohort has started.
+		plan := func(buildMS int64) *Plan {
+			build, cohort := engineUnit("build", buildMS), engineUnit("cohort", 600, "build")
+			long := engineUnit("long", 500)
+			cohort.Claims["cpu"] = 2
+			p := enginePlan(build, cohort, long)
+			p.facts.Capacities["cpu"] = 2
+			return p
+		}
+		run := func(p *Plan) []string {
+			return boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }}).Admissions
+		}
+		if got := run(plan(10)); !slices.Equal(got, []string{"build", "cohort", "long"}) {
+			t.Fatal("look-ahead did not hold long for cohort", got)
+		}
+		// Beyond the horizon nothing is reserved.
+		if got := run(plan(lookAheadHorizonMS + 10)); !slices.Equal(got[:2], []string{"build", "long"}) {
+			t.Fatal("look-ahead reserved beyond its horizon", got)
+		}
+	})
+	t.Run("look_ahead_reservations_are_bounded_by_capacity", func(t *testing.T) {
+		// Two imminent cohorts each need all the CPU; only the first can start
+		// when build ends, so only it reserves, and only against long.
+		build := engineUnit("build", 10)
+		first, second := engineUnit("first", 700, "build"), engineUnit("second", 650, "build")
+		first.Claims["cpu"], second.Claims["cpu"] = 2, 2
+		long := engineUnit("long", 500)
+		p := enginePlan(build, first, second, long)
+		p.facts.Capacities["cpu"] = 2
+		e := &graphEngine{plan: p, byID: map[string]unit{}, ranks: map[string]int64{}, running: map[string]bool{"build": true},
+			eligible: map[string]bool{}, admittedAt: map[string]int64{"build": 0}, result: graphResult{States: map[string]string{"build": "running", "first": "pending", "second": "pending", "long": "pending"}}}
+		for _, u := range p.facts.Graph.Units {
+			e.byID[u.ID] = u
+		}
+		e.computeRanks(0)
+		soon := e.imminent(0)
+		if len(soon) != 2 || soon[0].unit.ID != "first" || soon[0].at != 10 {
+			t.Fatal("imminent units", soon)
+		}
+		if lacking := e.lookAheadHold(long, e.ranks["long"], 0, soon); !slices.Equal(lacking, []string{"cpu"}) {
+			t.Fatal("long was not held for first", lacking)
+		}
+		short := engineUnit("short", 10)
+		if lacking := e.lookAheadHold(short, e.ranks["short"], 0, soon); lacking != nil {
+			t.Fatal("work that ends by then was held", lacking)
+		}
+		if lacking := e.lookAheadHold(first, e.ranks["build"]+1, 0, soon); lacking != nil {
+			t.Fatal("a unit outranking every imminent unit was held", lacking)
 		}
 	})
 	t.Run("rapid_dispatch_does_not_manufacture_age", func(t *testing.T) {

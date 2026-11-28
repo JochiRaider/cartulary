@@ -10,13 +10,15 @@ import (
 )
 
 // runRootFamilies are the run-level entries any graph run may retain at its
-// root's top level (TH-HARNESS-REQ-874).
+// root's top level (TH-HARNESS-REQ-874). harness-runtime-build holds the
+// command entry's one producer, which builds this runtime before the graph
+// exists when its source changed.
 var runRootFamilies = map[string]bool{
-	"run-manifest.json": true, "plan.json": true, "unit-events.ndjson": true,
-	"run-summary.json": true, "retained-secret-scan.json": true, "cleanup-results.json": true,
-	"error-code-coverage.json": true, "contract-evidence": true, "performance-fixtures": true,
-	"_shared": true, "diagnostics": true, "rows": true, "target-summaries": true,
-	"unit-artifacts": true, "unit-logs": true, "unit-results": true,
+	"run-manifest.json": true, "plan.json": true, "unit-events.ndjson": true, "run-summary.json": true,
+	"retained-secret-scan.json": true, "cleanup-results.json": true, "error-code-coverage.json": true,
+	"_shared": true, "diagnostics": true, "rows": true, "target-summaries": true, "unit-artifacts": true,
+	"unit-logs": true, "unit-results": true, "contract-evidence": true, "performance-fixtures": true,
+	"harness-runtime-build": true,
 }
 
 // checkRunRootLayout rejects a top-level entry that no run-level family,

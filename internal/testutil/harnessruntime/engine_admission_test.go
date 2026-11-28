@@ -331,6 +331,29 @@ func TestRuntimeCriticalPathReservation(t *testing.T) {
 	}
 }
 
+func TestRuntimeLookAheadReservation(t *testing.T) {
+	// cohort is not yet eligible but its need is running and it outranks
+	// long. Admitting long would leave cohort one CPU token short when build
+	// ends, so the ledger path holds long until cohort has started.
+	build, cohort, long := engineUnit("build", 10), engineUnit("cohort", 600, "build"), engineUnit("long", 500)
+	cohort.Claims["cpu"] = 2
+	p := enginePlan(build, cohort, long)
+	p.facts.Capacities["cpu"] = 2
+	ledger := newFakeLedger(map[string]int64{"cpu": 2})
+	r := boundedGraph(t, p, enginePorts{RetainEvents: true, Admission: ledger, Now: func() time.Duration { return 0 }, Execute: func(context.Context, executionRequest) unitResult {
+		return unitResult{Status: "passed"}
+	}})
+	if r.Status != "passed" || !slices.Equal(r.Admissions, []string{"build", "cohort", "long"}) {
+		t.Fatal("look-ahead did not reserve for imminent work", r.Admissions, r.Status)
+	}
+	facts := newCanonicalFacts(p)
+	for _, e := range r.Events {
+		if err := facts.consume(e); err != nil {
+			t.Fatal(e, err)
+		}
+	}
+}
+
 func TestRuntimeReservationCoversResidents(t *testing.T) {
 	// A unit whose own claims avoid the reservation still waits when a
 	// resident it would hold claims a reserved resource.

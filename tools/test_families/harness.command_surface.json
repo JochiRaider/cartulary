@@ -1042,6 +1042,7 @@
           "TestRuntimeHostPressure",
           "TestRuntimeLedgerAdmission",
           "TestRuntimeLifecycle",
+          "TestRuntimeLookAheadReservation",
           "TestRuntimeObservations",
           "TestRuntimePreparationDiagnostic",
           "TestRuntimePrivateFailureScope",
@@ -1104,6 +1105,7 @@
       "selector": {
         "package": "./internal/testutil/harnessruntime",
         "tests": [
+          "TestPoolAwareRanks",
           "TestRuntimeScheduling",
           "TestWaitSegmentAttribution"
         ]

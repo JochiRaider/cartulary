@@ -410,17 +410,40 @@ One graph compiler and one scheduler facade MUST serve public, leaf, direct,
 aggregate, and owner-slice selectors. The scheduler MUST:
 
 1. capture one immutable host-capability snapshot;
-2. rank each ready unit by qualified work plus longest estimated downstream path;
+2. rank each ready unit by qualified work plus the longer of its longest
+   estimated downstream path and the bound of the most loaded resource pool it
+   claims, its residents' claims included (amended 2026-11-27, G64). A pool's
+   bound is its remaining estimated work, the claim times the estimate of
+   every pending unit and the unexpired part of every running one, over its
+   capacity; the shared writable-root capability is not a pool. Ranks are
+   recomputed at each decision as pools drain. Work in the pool that bounds
+   the run therefore outranks side work for shared resources, longer work goes
+   first within a pool, and a short unit that gates such work inherits its
+   rank, while a unit still always outranks its dependents;
 3. admit the highest-ranked resource-fitting unit with stable `unit_id` ties;
 4. backfill with lower-ranked fitting units beside one reservation: the
    highest-ranked unit the host ledger denies reserves the resources it lacks,
    and a lower-ranked unit is admitted only when it claims none of them, so
    freed resources accumulate for the critical path (amended 2026-11-25, G31);
-5. add elapsed monotonic time since first eligibility, rounded down to the
+5. reserve ahead for imminent work (amended 2026-11-27, G60). A pending unit
+   not yet eligible is imminent when its estimated eligibility falls within
+   60 s. The estimate runs through its whole need chain from the per-unit
+   estimates: a running need ends at its admission plus its estimate, or now
+   once it has overrun, and a pending need starts when its own needs end. A
+   ready unit that an imminent unit outranks, and that is expected to still
+   run when that unit becomes eligible, waits when admitting it would leave
+   the imminent unit's claims, its residents' included, without room then.
+   Room is projected from the plan's capacities, the running units expected
+   to still run then, and the imminent units already reserved, highest rank
+   first. An imminent unit that would not fit even without the candidate
+   reserves nothing, so capacity bounds the reservations. Work expected to
+   finish by then is admitted, and the host ledger still decides every
+   admission;
+6. add elapsed monotonic time since first eligibility, rounded down to the
    authored aging quantum, to effective rank so backfill cannot starve work;
-6. block descendants of failed required predecessors while continuing only
+7. block descendants of failed required predecessors while continuing only
    independent work permitted by target failure policy; and
-7. on cancellation, stop admission, terminate owned process groups, release or
+8. on cancellation, stop admission, terminate owned process groups, release or
    destroy leases, and publish a partial non-success summary.
 
 Resource fit has one authority (amended 2026-11-25, G30). The graph charges
@@ -459,7 +482,7 @@ The authored graph, qualified cost model, capability snapshot, and capacity
 override declaration MUST determine admission reproducibly. Live self-tuning is
 outside v3. A scheduler family, shell loop, or nested Make invocation MUST NOT
 encode a second scheduling policy.
-Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170, TH-HARNESS-AC-175, TH-HARNESS-AC-176
+Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170, TH-HARNESS-AC-175, TH-HARNESS-AC-176, TH-HARNESS-AC-179, TH-HARNESS-AC-180
 
 **TH-HARNESS-REQ-803**
 Physical allocations MUST retain resident capacity until exact cleanup proves
@@ -7885,7 +7908,9 @@ A graph run root's top level is a closed set:
   `error-code-coverage.json`;
 - the run-level directories `_shared`, `diagnostics`, `rows`,
   `target-summaries`, `unit-artifacts`, `unit-logs`, `unit-results`,
-  `contract-evidence` and `performance-fixtures`;
+  `contract-evidence` and `performance-fixtures`, and
+  `harness-runtime-build`, the command entry's one producer, which builds the
+  runtime before the graph exists;
 - a directory named by a target the plan projects, by the report target in a
   unit's command, or by the first component of a unit's declared current-run
   evidence output.
@@ -12233,6 +12258,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root or a changed mode in it; a record without a seal; unnamed, recorded and stale installations at collection; `--no-cache` and `--force` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a root that lost its seal is never reused; collection keeps what the receipt or a recent record names; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
 | TH-HARNESS-AC-175 | REQ-802, REQ-803 | A graph of ready units whose claims and residents exceed the ledger, a cached unit, another owner's older waiting request and exclusive fence, a ledger change by another process, and a graph with no running unit | The scheduler admits only units the ledger view grants with every claim and resident together; a denied unit holds no token and names its deficits or `host_admission`; a cached unit never reaches the ledger; waiters wake on a ledger change; with nothing running the top-ranked fitting unit waits in host admission; PostgreSQL work and generations are each charged once | A token held by a denied unit, a partial grant, a cache hit admitted, a waiter that only polls, or a generation charged twice fails. |
 | TH-HARNESS-AC-176 | REQ-802 | A ready high-ranked unit the ledger denies and lower-ranked units that do and do not claim the resources it lacks | Lower-ranked units claiming none of the reserved resources are admitted; one claiming a reserved resource waits; the high-ranked unit is admitted when its resources free | A backfill that takes a reserved resource or a reservation that blocks unrelated work fails. |
+| TH-HARNESS-AC-179 | REQ-802 | A not-yet-eligible high-ranked unit whose need is running; a long and a short lower-ranked candidate; the same with the need beyond 60 s; two imminent units that cannot both fit | The long candidate waits until the imminent unit starts; the short one is admitted; nothing is reserved beyond the horizon; only the imminent unit that can fit reserves; a candidate that outranks the imminent units is never held | A long candidate admitted ahead of imminent work it would block, a reservation beyond 60 s or beyond capacity, or a hold on work that ends in time fails. |
+| TH-HARNESS-AC-180 | REQ-802 | A graph bounded by a two-lane pool, with long and short pool units, a longer side unit, and a short gate feeding a pool unit; the same after the long pool unit has run part of its estimate | Pool units outrank the side unit, the longer pool unit outranks the shorter, the gate outranks the side unit and its dependent, and ranks fall as the pool drains | Ranking a side unit above bounding pool work it does not outlast, a gate below side work, or ranks that ignore draining fails. |
 | TH-HARNESS-AC-177 | REQ-873 | Passing, failing and raw-diagnostics cohorts of each Playwright stage; a report that does not parse; passing, failing and raw-diagnostics Fallow targets | A passing cohort outside `visual` and `measurement` retains no report, checkpoint or Playwright output and records a null report; visual and measurement cohorts and failed cohorts keep them; the checkpoint survives only when the report did not parse; a passing Fallow target keeps only its summary and resolved configurations and records `discarded`; a failure or raw request keeps every raw file | A passing cohort or Fallow target that retains raw output without a raw request, a consumer that reads a removed report, or a failure that loses its raw output fails. |
 | TH-HARNESS-AC-178 | REQ-874 | Retained `check`, `ci` and `release-check` roots; a top-level fixture copy, test record or nested result root; a passing, failing and blocked Network Flow comparison in Go and Node; a unit without its artifact directory | Only declared entries remain at the top level; unit evidence and fixture copies sit under `unit-artifacts/<unit>/`; a pass keeps its summary and releases inputs and produced bytes; a failure or block keeps them; an undeclared entry fails the run as `artifact_error` naming it; a missing unit directory is rejected | An undeclared top-level entry that passes, a pass that retains its materialized inputs, or a failure that loses them fails. |
 

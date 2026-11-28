@@ -264,21 +264,28 @@ type graphEngine struct {
 	mailbox                   chan engineMessage
 	byID                      map[string]unit
 	ranks, eligibleAt, claims map[string]int64
-	shared                    map[string]int
-	exclusive                 map[string]bool
-	running, eligible         map[string]bool
-	released                  map[string]bool
-	waits                     map[string]*waitSegment
-	activities                map[string]string
-	activityWait              map[string]string
-	starts                    map[string]*int64
-	result                    graphResult
-	seq, lastMS               int64
-	phaseSequence             atomic.Int64
-	phase                     string
-	err                       error
-	stopAdmission             bool
-	deferredCache             []unit
+	// admittedAt is each running unit's admission instant, from which the
+	// look-ahead projects when it frees its claims.
+	admittedAt map[string]int64
+	// successors and poolClaims are fixed by the plan; ranks are recomputed
+	// from them at each decision.
+	successors        map[string][]string
+	poolClaims        map[string]map[string]int64
+	shared            map[string]int
+	exclusive         map[string]bool
+	running, eligible map[string]bool
+	released          map[string]bool
+	waits             map[string]*waitSegment
+	activities        map[string]string
+	activityWait      map[string]string
+	starts            map[string]*int64
+	result            graphResult
+	seq, lastMS       int64
+	phaseSequence     atomic.Int64
+	phase             string
+	err               error
+	stopAdmission     bool
+	deferredCache     []unit
 	// leases are host leases granted at admission; denied holds each ready
 	// unit's deficits at its last evaluation against the host ledger.
 	leases map[string]*hostLease
@@ -309,7 +316,7 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	e := &graphEngine{plan: plan, ports: ports, ctx: ctx, cancel: cancel, mailbox: make(chan engineMessage, 256),
-		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
+		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{}, admittedAt: map[string]int64{},
 		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{}, released: map[string]bool{},
 		waits: map[string]*waitSegment{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
 		leases: map[string]*hostLease{}, denied: map[string][]string{}, lookups: map[string]cacheResult{}, attempts: map[string]int{},
@@ -318,7 +325,7 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 		e.byID[u.ID] = u
 		e.result.States[u.ID] = "pending"
 	}
-	e.computeRanks()
+	e.computeRanks(0)
 	e.emit(0, "run_started", "harness:run", "running", nil)
 	for _, u := range plan.facts.Graph.Units {
 		e.emit(e.now(), "queued", u.ID, "pending", nil)
@@ -461,29 +468,59 @@ func rowIDs(u unit) []string {
 	slices.Sort(ids)
 	return ids
 }
-func (e *graphEngine) computeRanks() {
-	successors := map[string][]string{}
-	for _, u := range e.byID {
-		for _, n := range u.Needs {
-			successors[n] = append(successors[n], u.ID)
+
+// computeRanks ranks every unit by its qualified work plus the longer of its
+// longest estimated downstream path and the bound of the most loaded pool it
+// claims: that pool's remaining estimated work over its capacity
+// (TH-HARNESS-REQ-802, G64). Work in the pool that bounds the run therefore
+// outranks side work for shared resources, longer work goes first within a
+// pool, and a unit that gates such work inherits its rank through the path.
+// Pools drain as work runs, so ranks are recomputed at every decision.
+func (e *graphEngine) computeRanks(now int64) {
+	if e.successors == nil {
+		e.successors, e.poolClaims = map[string][]string{}, map[string]map[string]int64{}
+		for _, u := range e.plan.facts.Graph.Units {
+			for _, n := range u.Needs {
+				e.successors[n] = append(e.successors[n], u.ID)
+			}
+			e.poolClaims[u.ID] = projectedClaims(u)
 		}
 	}
+	work := map[string]int64{}
+	for _, u := range e.plan.facts.Graph.Units {
+		remaining := int64(0)
+		switch e.result.States[u.ID] {
+		case "pending":
+			remaining = u.EstimateMS
+		case "running":
+			remaining = max(0, e.admittedAt[u.ID]+u.EstimateMS-now)
+		}
+		for r, n := range e.poolClaims[u.ID] {
+			work[r] += remaining * n
+		}
+	}
+	ranks := make(map[string]int64, len(e.byID))
 	var rank func(string) int64
 	rank = func(id string) int64 {
-		if r, ok := e.ranks[id]; ok {
+		if r, ok := ranks[id]; ok {
 			return r
 		}
-		var downstream int64
-		for _, n := range successors[id] {
-			downstream = max(downstream, rank(n))
+		var longest int64
+		for _, n := range e.successors[id] {
+			longest = max(longest, rank(n))
 		}
-		r := e.byID[id].EstimateMS + downstream
-		e.ranks[id] = r
-		return r
+		for r := range e.poolClaims[id] {
+			if capacity := e.plan.facts.Capacities[r]; capacity > 0 {
+				longest = max(longest, work[r]/capacity)
+			}
+		}
+		ranks[id] = e.byID[id].EstimateMS + longest
+		return ranks[id]
 	}
 	for _, u := range e.plan.facts.Graph.Units {
 		rank(u.ID)
 	}
+	e.ranks = ranks
 }
 func terminalState(s string) bool { return s != "pending" && s != "running" }
 
@@ -668,9 +705,10 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 	ordered := slices.Clone(ready)
 	now := e.now()
 	quantum := max(1, e.plan.facts.AgingMS)
+	e.computeRanks(now)
+	effective := func(u unit) int64 { return e.ranks[u.ID] + max(0, now-e.eligibleAt[u.ID])/quantum*quantum }
 	slices.SortFunc(ordered, func(a, b unit) int {
-		ar := e.ranks[a.ID] + max(0, now-e.eligibleAt[a.ID])/quantum*quantum
-		br := e.ranks[b.ID] + max(0, now-e.eligibleAt[b.ID])/quantum*quantum
+		ar, br := effective(a), effective(b)
 		if ar > br {
 			return -1
 		}
@@ -679,9 +717,10 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
+	soon := e.imminent(now)
 	if e.ports.Admission == nil {
 		for _, u := range ordered {
-			if e.graphBlocking(u, barriers).reason == "rank" {
+			if e.graphBlocking(u, barriers).reason == "rank" && e.lookAheadHold(u, effective(u), now, soon) == nil {
 				return &u
 			}
 		}
@@ -705,6 +744,10 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		if fallback == nil {
 			candidate := u
 			fallback = &candidate
+		}
+		if lacking := e.lookAheadHold(u, effective(u), now, soon); lacking != nil {
+			e.denied[u.ID] = lacking
+			continue
 		}
 		if view == nil {
 			var err error
@@ -785,6 +828,143 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		return fallback
 	}
 	return nil
+}
+
+// lookAheadHorizonMS bounds how far ahead the scheduler reserves for work that
+// is not yet eligible (TH-HARNESS-REQ-802, D39).
+const lookAheadHorizonMS = 60_000
+
+// soonUnit is a pending unit expected to become eligible within the horizon.
+type soonUnit struct {
+	unit unit
+	at   int64
+}
+
+// imminent lists the pending units not yet eligible whose estimated
+// eligibility, through their whole need chain, falls within the horizon,
+// highest rank first. A running need ends at its admission plus its estimate,
+// or now if it has overrun; a pending need starts when its own needs end.
+func (e *graphEngine) imminent(now int64) []soonUnit {
+	finish := map[string]int64{}
+	var ends func(id string) (int64, bool)
+	ends = func(id string) (int64, bool) {
+		if at, ok := finish[id]; ok {
+			return at, at >= 0
+		}
+		state := e.result.States[id]
+		at := int64(-1)
+		switch {
+		case state == "passed":
+			at = now
+		case state == "running":
+			at = max(now, e.admittedAt[id]+e.byID[id].EstimateMS)
+		case state == "pending":
+			if start, ok := e.eligibility(id, now, ends); ok {
+				at = start + e.byID[id].EstimateMS
+			}
+		}
+		finish[id] = at
+		return at, at >= 0
+	}
+	soon := []soonUnit{}
+	for _, u := range e.plan.facts.Graph.Units {
+		if e.result.States[u.ID] != "pending" || e.eligible[u.ID] || len(u.Needs) == 0 {
+			continue
+		}
+		if at, ok := e.eligibility(u.ID, now, ends); ok && at-now <= lookAheadHorizonMS {
+			soon = append(soon, soonUnit{u, at})
+		}
+	}
+	slices.SortFunc(soon, func(a, b soonUnit) int {
+		return cmp.Or(cmp.Compare(e.ranks[b.unit.ID], e.ranks[a.unit.ID]), strings.Compare(a.unit.ID, b.unit.ID))
+	})
+	return soon
+}
+
+// eligibility is when id's needs are all expected to have ended; a need that
+// failed, was skipped or was cancelled means id never runs.
+func (e *graphEngine) eligibility(id string, now int64, ends func(string) (int64, bool)) (int64, bool) {
+	at := now
+	for _, n := range e.byID[id].Needs {
+		end, ok := ends(n)
+		if !ok {
+			return 0, false
+		}
+		at = max(at, end)
+	}
+	return at, true
+}
+
+// lookAheadHold returns the resources a ready candidate must leave for
+// imminent work that outranks it, or nil when it may be admitted. Each
+// imminent unit, highest rank first, is projected to start at its expected
+// eligibility beside the running units still expected to run then and the
+// imminent units already reserved. One that would not fit even without the
+// candidate reserves nothing, so capacity bounds the reservations. A
+// candidate expected to finish by then is never held (TH-HARNESS-REQ-802).
+func (e *graphEngine) lookAheadHold(a unit, rank, now int64, soon []soonUnit) []string {
+	end := now + a.EstimateMS
+	reserved := map[string]int64{}
+	candidate := projectedClaims(a)
+	for _, s := range soon {
+		if e.ranks[s.unit.ID] <= rank {
+			break
+		}
+		need := projectedClaims(s.unit)
+		use := e.projectedUse(s.at, now)
+		fits := true
+		for r, n := range need {
+			fits = fits && use[r]+reserved[r]+n <= e.plan.facts.Capacities[r]
+		}
+		if !fits {
+			continue
+		}
+		if end > s.at {
+			lacking := []string{}
+			for r, n := range need {
+				if use[r]+reserved[r]+n+candidate[r] > e.plan.facts.Capacities[r] {
+					lacking = append(lacking, r)
+				}
+			}
+			if len(lacking) > 0 {
+				slices.Sort(lacking)
+				return lacking
+			}
+		}
+		for r, n := range need {
+			reserved[r] += n
+		}
+	}
+	return nil
+}
+
+// projectedUse sums the claims of running units expected to still run at at.
+func (e *graphEngine) projectedUse(at, now int64) map[string]int64 {
+	use := map[string]int64{}
+	for id := range e.running {
+		if max(now, e.admittedAt[id]+e.byID[id].EstimateMS) > at {
+			for r, n := range projectedClaims(e.byID[id]) {
+				use[r] += n
+			}
+		}
+	}
+	return use
+}
+
+// projectedClaims are a unit's additive claims, its residents' included. The
+// writable-root capability is shared rather than summed, so it is left out.
+func projectedClaims(u unit) map[string]int64 {
+	claims := map[string]int64{}
+	for r, n := range u.Claims {
+		claims[r] += n
+	}
+	for _, resident := range u.Residents {
+		for r, n := range resident.Claims {
+			claims[r] += n
+		}
+	}
+	delete(claims, "volume")
+	return claims
 }
 
 // changes is the ledger's change signal, or nil without a ledger authority.
@@ -946,6 +1126,7 @@ func (e *graphEngine) admit(u unit) {
 	e.result.Units[u.ID] = unitResult{Cache: c}
 	e.activities[u.ID] = "admitted"
 	e.running[u.ID] = true
+	e.admittedAt[u.ID] = at
 	e.reserve(u, 1)
 	e.result.Admissions = append(e.result.Admissions, u.ID)
 	e.emit(at, "admitted", u.ID, "running", nil)
