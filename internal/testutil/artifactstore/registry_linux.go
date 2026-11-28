@@ -168,7 +168,7 @@ func (d Declaration) validate() error {
 	}
 	allowed, known := map[string][]string{
 		"go_binary":           {"package", "tags", "name"},
-		"go_tool":             {"tool", "module_dir"},
+		"go_tool":             {"tool", "module_dir", "package"},
 		"shellcheck":          {"archives"},
 		"web_bundle":          {"mode", "inputs"},
 		"embedded_assets":     {"source", "client_support"},
@@ -195,6 +195,8 @@ func (d Declaration) validate() error {
 		return errors.New("a go_binary declares a ./package and a file name")
 	case d.Kind == "go_tool" && d.Tool == "":
 		return errors.New("a go_tool declares a pinned tool")
+	case d.Kind == "go_tool" && d.Package != "" && (d.ModuleDir == "" || !strings.HasPrefix(d.Package, "./")):
+		return errors.New("a go_tool's own command is a ./package in its module directory")
 	case (d.Kind == "shellcheck" || d.Kind == "node_runtime") && len(d.Archives) == 0:
 		return fmt.Errorf("%s declares its archive digests", d.Kind)
 	case d.Kind == "web_bundle" && (d.Mode != "production" && d.Mode != "measurement" || len(d.Inputs) == 0 || d.Target == ""):
@@ -382,7 +384,7 @@ func (w *Workspace) goTool(d Declaration) (GoTool, error) {
 	if !ok {
 		return GoTool{}, fmt.Errorf("the toolchain pins name no tool %s", d.Tool)
 	}
-	return GoTool{Root: w.Root, ModuleDir: d.ModuleDir, Module: module}, nil
+	return GoTool{Root: w.Root, ModuleDir: d.ModuleDir, Module: module, Package: d.Package}, nil
 }
 
 // goEnvironment is the environment Go producers run with: the workspace's

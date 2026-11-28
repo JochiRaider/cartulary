@@ -13,7 +13,7 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
-GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/gosec-v2.29.0}"
+GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/gosec-v2.30.0}"
 GOSEC_AUDIT_RUNTIME_RULES="${GOSEC_AUDIT_RUNTIME_RULES:-G118,G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_AUDIT_RUNTIME_FLAGS="${GOSEC_AUDIT_RUNTIME_FLAGS:-}"
 GOSEC_AUDIT_RUNTIME_PATTERNS="${GOSEC_AUDIT_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
@@ -21,12 +21,15 @@ GOSEC_AUDIT_SUPPORT_RULES="${GOSEC_AUDIT_SUPPORT_RULES:-G122,G301,G302,G303,G304
 GOSEC_AUDIT_SUPPORT_FLAGS="${GOSEC_AUDIT_SUPPORT_FLAGS:--exclude-generated -no-fail -quiet}"
 GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-./tools/...}"
 profile_metadata="${CARTULARY_STEP_ARTIFACT_DIR:+${CARTULARY_STEP_ARTIFACT_DIR}/security-profiles.jsonl}"
-audit_cpu_limit="${CARTULARY_SEQUENCE_HOST_CPU_LIMIT:-}"
-if [[ -z "$audit_cpu_limit" ]]; then
-  audit_cpu_limit="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)"
+# The admitted unit's CPU claim bounds the analyzer's parallelism, so its
+# cores stay inside host admission (TH-HARNESS-REQ-353). Outside the harness
+# the host's CPUs bound it.
+cpu_limit="${CARTULARY_UNIT_CPU_TOKENS:-}"
+if [[ -z "$cpu_limit" ]]; then
+  cpu_limit="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)"
 fi
-if [[ ! "$audit_cpu_limit" =~ ^[1-9][0-9]*$ ]]; then
-  echo "go-gosec-audit requires a positive scheduler CPU limit" >&2
+if [[ ! "$cpu_limit" =~ ^[1-9][0-9]*$ ]]; then
+  echo "go-gosec-audit requires a positive unit CPU limit" >&2
   exit 1
 fi
 
@@ -100,7 +103,9 @@ run_profile() {
     exit 1
   fi
 
-  local args=("-include=$rules")
+  # The driver loads each module once; -concurrency bounds the packages it
+  # checks at once and GOMAXPROCS its threads.
+  local args=("-include=$rules" "-concurrency=$cpu_limit")
   if [[ -n "$flags" ]]; then
     local flag_args=()
     read -r -a flag_args <<<"$flags"
@@ -116,13 +121,20 @@ run_profile() {
       "$label" "$rules" "$flags" "$patterns_value" >>"$profile_metadata"
   fi
   printf 'go-gosec-audit advisory %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
-  env GOMAXPROCS="$audit_cpu_limit" \
+  env GOMAXPROCS="$cpu_limit" \
     GOCACHE="$GO_CACHE_DIR" \
     GOMODCACHE="$GO_MOD_CACHE_DIR" \
     GOTMPDIR="$GO_TMP_DIR" \
     PATH="$(dirname "$GO_BIN"):$PATH" \
     "$GOSEC_BIN" "${args[@]}" "${patterns[@]}"
 }
+
+# The scanner must report its seeded fixture finding before the repository is
+# scanned, so a scan that reports nothing has proven it can report. The module
+# graph comes only from the bootstrapped cache.
+env GOWORK=off GOFLAGS=-mod=readonly GOPROXY=off GOTELEMETRY=off GOMAXPROCS="$cpu_limit" \
+  GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
+  "$GO_BIN" -C "$ROOT_DIR/tools/go-analysis" test -count=1 ./gosec
 
 cd "$ROOT_DIR"
 

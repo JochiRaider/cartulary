@@ -22,6 +22,8 @@ test("Govulncheck uses authored discovery roots and forwards the database as one
   assert.deepEqual(fixture.calls().map((call) => call.args), [["-db", database, "-test", "-json", ...authoredPackages]]);
   assertToolEnvironment(fixture, fixture.calls("go")[0], false);
   assertToolEnvironment(fixture, fixture.calls()[0]);
+  // The unit's CPU claim bounds discovery and the scan.
+  assert.deepEqual([fixture.calls("go")[0].env.GOMAXPROCS, fixture.calls()[0].env.GOMAXPROCS], ["4", "4"]);
   const summary = fixture.readJSON("artifacts/govulncheck-findings.json");
   validateSchemaSync("cartulary.govulncheck_findings.v1", summary);
   assert.equal(summary.status, "pass");

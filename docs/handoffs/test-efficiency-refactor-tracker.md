@@ -1406,6 +1406,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
 | 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Approved as recommended (16.13) |
 | 2026-11-28 | P7-5c / G65 | Topology v17 PostgreSQL profiles; unit generations sized from per-row footprints (estimates v2); the broker sizes each `tmpfs` from its resident claim; `terminate-suite` records `postgres-footprint.json` | `p7-5c-seg-footprint`, `-footprint2`, eight segments | Implemented; gate pending (16.15) |
+| 2026-11-28 | P7-5c / G67 | Browser cohorts claim their renderer core; analyzer profiles claim and cap their cores; gosec runs through a single-load driver on gosec v2.30.0; a stale launcher defers a registry it rejects | `p7-5c-ci03` (measurement), parity runs, 13 targeted segments and the three analyzer targets | Pass; targeted only, at the owner's direction (16.16) |
 | 2026-11-28 | P7-5b | Generation peaks by profile, service CPU, object-store and direct-owner shares measured; D43 revised to per-row footprints for unit generations; G68 and G69 closed without change | `p7-5b-check01`, `p7-5b-ci01` | Recorded (16.14) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
@@ -7117,3 +7118,50 @@ the generation's `tmpfs` come from one value, so admission still bounds use.
   `estimate-refresh` folds them; then a `check` pair and one `ci` on sized
   claims must show no disk-full failure, every peak under its capacity and
   memory-blocked waits near zero at eight generations.
+
+### 16.16 CPU Claims That Cover Use (P7-5c, G67)
+
+`p7-5c-ci03` showed services above the 5-core margin in 58% of intervals,
+while the host never ran out of cores; the pressure spikes came from tools
+using more cores than they claim. The owner chose both fixes.
+
+- **Browser cohorts.** `browser_ordinary` and `browser_measurement_quiet`
+  claim 3 CPU tokens instead of 2: the pooled renderer each cohort drives
+  used about one core (p90 1.3).
+- **Analyzer claims.** Profiles `go_security_analysis` (4 CPU, 2,304 MB) and
+  `go_vulnerability_analysis` (4 CPU, 7,168 MB) replace `standard` (1 CPU,
+  256 MB) for the `gosec` and `govulncheck` operations. The wrappers cap
+  parallelism at the claim through `CARTULARY_UNIT_CPU_TOKENS`
+  (`GOMAXPROCS`, and `-concurrency` for gosec); the unused
+  `CARTULARY_SEQUENCE_HOST_CPU_LIMIT` is removed. Before: gosec 14 to 15
+  cores on 1 token, govulncheck 9 cores and 6.1 GB on 1 token and 256 MB.
+- **Why gosec could not be capped.** The gosec command loads each of about
+  460 packages with its own `go list -deps -export`, about 0.27 CPU-s each,
+  and runs `-concurrency` (default: every core) of them at once; each one
+  takes `GOMAXPROCS` threads. Capped at 4 it still used 6.9 cores. One load
+  of every package costs 3.6 CPU-s.
+- **Scanner driver.** `tools/go-analysis/gosec` runs gosec's rules and
+  analyzers through its library (`CheckRules`, `CheckAnalyzers`, `Report`)
+  with one load per module, keeping the command's discovery, build-constraint
+  filter, rule selection, suppressions, report and exit status for the
+  wrappers' flags and refusing any other. The `gosec` producer builds it:
+  a `go_tool` may now declare its own `./package` in its module directory,
+  and its key covers that command's source closure.
+  - Parity against the upstream v2.30.0 command on all three wrapper
+    profiles: identical issues and order (0, 0 and 144 advisory), file,
+    line and `#nosec` counts, and no errors.
+  - Per profile: 6.6 s and 114 CPU-s before, 2.0 s and 6.9 CPU-s after
+    (about 3.5 cores at a cap of 4); peak memory 1.5 GB, because one load
+    holds every package.
+  - Each wrapper first runs the driver's fixture proof (`go test` of
+    `./gosec`, offline), which must report its seeded G401 finding, a rule
+    no scan profile includes.
+- **gosec v2.30.0.** Updated from v2.29.0 at the owner's request; no
+  finding changed on any profile. `tools/go-analysis` no longer requires the
+  CLI's AI-provider, cloud and gRPC dependencies (52 indirect modules to 12);
+  `golang.org/x/tools` moves to v0.52.0 with it.
+- **Launcher fix.** A published `harnessbuild` launcher validated the
+  registry before it checked its own staleness, so a registry its older
+  rules reject (here, the new `package` field) failed every stale launcher.
+  It now hands the run to the current sources, as it already does for stale
+  bytes.

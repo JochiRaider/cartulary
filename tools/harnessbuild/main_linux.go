@@ -27,6 +27,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -81,13 +82,13 @@ func produce(store, rootsFile string, controls artifactstore.Controls, ids, args
 	if err != nil {
 		return err
 	}
-	registry, err := artifactstore.ReadRegistry(root)
-	if err != nil {
-		return err
-	}
+	// A registry the current sources accept can carry a declaration that an
+	// older published launcher rejects, so its error waits for the staleness
+	// check below.
+	registry, registryErr := artifactstore.ReadRegistry(root)
 	workspace, err := artifactstore.OpenWorkspace(root, os.Environ())
 	if err != nil {
-		return err
+		return errors.Join(registryErr, err)
 	}
 	// The Go toolchain is readied once, before the first Go command; a Go
 	// binary whose key and root the store answers runs none.
@@ -100,7 +101,13 @@ func produce(store, rootsFile string, controls artifactstore.Controls, ids, args
 	s := artifactstore.Store{Root: store}
 	launcher, resident, err := residentLauncher(workspace, registry)
 	if err != nil {
-		return err
+		return errors.Join(registryErr, err)
+	}
+	if resident && registryErr != nil {
+		return compileAndRun(workspace, args)
+	}
+	if registryErr != nil {
+		return registryErr
 	}
 	if resident {
 		producer, _, err := workspace.Plan(launcher)

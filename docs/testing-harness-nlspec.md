@@ -647,6 +647,10 @@ MUST NOT widen those values.
 
 The resource profile selected by `resource_profile_id` is the sole owner of a
 unit's base numeric claims. Runner-local default claim tables are forbidden.
+A profile's CPU claim covers every core its unit uses, a borrowed renderer's
+included; a tool whose parallelism would follow the host's cores instead is
+capped at the claim it receives as `CARTULARY_UNIT_CPU_TOKENS` (amended
+2026-11-28, G67).
 The execution topology MUST also own one minimum resource-claim map for every
 admitted service dependency. Compilers merge each declared dependency into the
 selected profile with maximum-per-resource semantics, so a profile MAY reserve
@@ -1401,8 +1405,10 @@ not retried. Direct and aggregate selectors use identical group IDs,
 dependencies, profiles, and evidence outputs.
 
 All ordinary browser cohorts MUST use the `browser_ordinary` resource profile,
-with the existing claims of two CPU tokens, one I/O token, 640 MiB, two PostgreSQL
-tokens and four processes. `browser_functional` and `browser_isolated` are retired
+with claims of three CPU tokens, one I/O token, 640 MiB, two PostgreSQL
+tokens and four processes. One CPU token is the pooled renderer the cohort
+drives, measured at about one core per running cohort (amended 2026-11-28,
+G67); `browser_measurement_quiet` claims it the same way. `browser_functional` and `browser_isolated` are retired
 without aliases. State scope determines cohort isolation independently of resource
 profile names. Physical renderer/service residency remains separately accounted.
 The planner uses at most the resolved `BROWSER_LANES` concurrent ordinary lanes
@@ -2356,8 +2362,8 @@ The current runtime profiles are:
 
 The current resource profiles are `standard`, `io_heavy`, `postgres_heavy`, `managed_process`,
 `backend_capacity_isolated`, `backend_capacity_postgres_heavy`, `performance_fixture_builder`,
-`browser_ordinary`, `browser_measurement_quiet`, and
-`postgres_catalog_isolated`, `ui_review_raster`, `ui_review_report`, and `ui_review_diagnostic`. Every resource profile MUST
+`browser_ordinary`, `browser_measurement_quiet`, `go_security_analysis`,
+`go_vulnerability_analysis`, and `postgres_catalog_isolated`, `ui_review_raster`, `ui_review_report`, and `ui_review_diagnostic`. Every resource profile MUST
 bound executable work with positive `cpu`, `io`, `memory_mb`, and `process`
 claims; a zero-claim executable profile is forbidden. Their exact claims MUST
 be present in the authored topology; omission has no implicit fallback. The fixture capability set is closed by
@@ -2731,7 +2737,11 @@ directory last changed more than two seconds before the commands ran. The key
 is the same either way. `--no-cache` and `--force` compute the key without the
 memo, and collection removes a memo unused for 30 days. A Go tool's key covers its pinned module and
 version, the go.mod and go.sum of the module directory it builds from, the
-effective `go env` settings and its producer. Web bundles and embedded web
+effective `go env` settings and its producer. A Go tool MAY instead declare
+its own command, a `./package` in its module directory that carries the
+pinned tool's name and builds against the pinned module's library; its key
+also covers that command's import closure in the module directory (amended
+2026-11-28, G67). Web bundles and embedded web
 assets are keyed as their clauses below state; a web bundle publishes no view,
 because its root becomes the run's frontend artifact. ShellCheck's key is its release
 archive's name and committed digest; an archive with another digest is
@@ -7130,6 +7140,18 @@ their outputs. Aggregate membership does not add an edge. Retained duration
 inspection is read-only diagnostic work, without a baseline or drift gate.
 Source-boundary commands MUST index each repository tree once
 per invocation and reuse immutable file text across their independent checks.
+
+Both gosec targets run the repository's gosec scanner, the `gosec` producer's
+own command `tools/go-analysis/gosec`, built against the pinned gosec library
+(amended 2026-11-28, G67). It keeps the gosec command's package discovery,
+build-constraint filtering, rule and analyzer selection, suppressions, report
+and exit status for the flags the wrappers pass, and refuses any other flag.
+Where the gosec command loads each package separately, every load walking the
+whole dependency graph again, the scanner loads each module's packages once.
+Before it scans, each gosec wrapper runs the scanner's fixture proof, offline,
+which must report its seeded finding, so a scan that reports nothing has
+proven it can report. The gosec and Govulncheck wrappers bound their tools'
+parallelism by the admitted unit's CPU claim, `CARTULARY_UNIT_CPU_TOKENS`.
 
 The advisory gosec audit owns one physical repository scan, preserving the
 stable union of its runtime and support rules. `go-vulncheck` is one semantic

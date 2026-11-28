@@ -149,7 +149,8 @@
       "directory": "toolbin",
       "label": "bootstrap gosec tool",
       "tool": "gosec",
-      "module_dir": "tools/go-analysis"
+      "module_dir": "tools/go-analysis",
+      "package": "./gosec"
     },
     {
       "id": "cyclonedx-gomod",

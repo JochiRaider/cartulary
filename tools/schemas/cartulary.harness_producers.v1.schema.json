@@ -74,7 +74,8 @@
           },
           "package": {
             "type": "string",
-            "pattern": "^\\./[A-Za-z0-9_./-]+$"
+            "pattern": "^\\./[A-Za-z0-9_./-]+$",
+            "description": "A go_binary's package, or a go_tool's own command in its module directory, which builds the pinned tool's library."
           },
           "tags": {
             "type": "string",
@@ -91,7 +92,7 @@
             "pattern": "^[a-z][a-z0-9_]*$"
           },
           "module_dir": {
-            "description": "The module directory whose go.mod and go.sum select a Go tool's dependencies.",
+            "description": "The module directory whose go.mod and go.sum select a Go tool's dependencies and which holds a go_tool's own command.",
             "type": "string",
             "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$"
           },
@@ -210,11 +211,6 @@
                 "anyOf": [
                   {
                     "required": [
-                      "package"
-                    ]
-                  },
-                  {
-                    "required": [
                       "tags"
                     ]
                   },
@@ -248,6 +244,11 @@
                       "client_support"
                     ]
                   }
+                ]
+              },
+              "dependentRequired": {
+                "package": [
+                  "module_dir"
                 ]
               }
             }

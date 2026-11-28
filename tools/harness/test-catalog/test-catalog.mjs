@@ -64,6 +64,8 @@ const expectedProfiles = Object.freeze({
     "browser_measurement_quiet",
     "browser_ordinary",
     "credential_capacity_quiet",
+    "go_security_analysis",
+    "go_vulnerability_analysis",
     "harness_contract",
     "harness_installed_browser",
     "io_heavy",

@@ -154,6 +154,7 @@ func TestDeclarationsAreValidatedByKind(t *testing.T) {
 	valid := map[string]Declaration{
 		"go_binary":        {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "./cmd/b", Name: "b"},
 		"go_tool":          {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc"},
+		"go_tool command":  {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", ModuleDir: "tools/analysis", Package: "./sqlc"},
 		"shellcheck":       {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin", Archives: map[string]string{"a": "b"}},
 		"web_bundle":       {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "production", Inputs: []string{"apps/web"}},
 		"embedded_assets":  {ID: "e", Kind: "embedded_assets", Binding: "E_ZIP", Directory: "embedded_assets", Source: "build-web", ClientSupport: "c.json"},
@@ -171,6 +172,7 @@ func TestDeclarationsAreValidatedByKind(t *testing.T) {
 		"a binary with a tool":      {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "./cmd/b", Name: "b", Tool: "sqlc"},
 		"a binary outside ./":       {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "cmd/b", Name: "b"},
 		"a tool with a package":     {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", Package: "./x"},
+		"a tool command outside ./": {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", ModuleDir: "tools/analysis", Package: "sqlc"},
 		"shellcheck without digest": {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin"},
 		"a lowercase binding":       {ID: "t", Kind: "go_tool", Binding: "t_bin", Directory: "toolbin", Tool: "sqlc"},
 		"a target without a label":  {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", Target: "x"},
@@ -272,6 +274,30 @@ func TestGoToolKey(t *testing.T) {
 	}
 	if _, err := (GoTool{Root: root, Module: "unpinned", Go: goExecutable}).Key(); err == nil {
 		t.Fatal("an unpinned module was accepted")
+	}
+
+	// A tool's own command builds from its module directory, and its source
+	// closure is part of the key; it must carry the pinned tool's name.
+	write("analysis/go.sum", "")
+	write("analysis/tool/main.go", "package main\n\nfunc main() {}\n")
+	command := tool
+	command.Package = "./tool"
+	if want := []string{"-C", "analysis", "install", "-mod=readonly", "./tool"}; !slices.Equal(command.installArgs(), want) {
+		t.Fatalf("command install arguments %v, want %v", command.installArgs(), want)
+	}
+	commandKey := key(command)
+	if commandKey == key(tool) {
+		t.Fatal("a command kept the pinned tool's key")
+	}
+	write("analysis/tool/main.go", "package main\n\nfunc main() { println() }\n")
+	if key(command) == commandKey {
+		t.Fatal("the command's source did not change the key")
+	}
+	misnamed := command
+	misnamed.Package = "./other"
+	write("analysis/other/main.go", "package main\n\nfunc main() {}\n")
+	if _, err := misnamed.Key(); err == nil {
+		t.Fatal("a command named unlike its tool was accepted")
 	}
 }
 

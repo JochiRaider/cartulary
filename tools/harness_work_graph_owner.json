@@ -729,7 +729,7 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 8000,
-      "resource_profile_id": "standard",
+      "resource_profile_id": "go_security_analysis",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -739,7 +739,7 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 8000,
-      "resource_profile_id": "standard",
+      "resource_profile_id": "go_security_analysis",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -759,7 +759,7 @@
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 8000,
-      "resource_profile_id": "standard",
+      "resource_profile_id": "go_vulnerability_analysis",
       "service_dependencies": [],
       "postgres_isolation": "none",
       "current_run_evidence_outputs": [

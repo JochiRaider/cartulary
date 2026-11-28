@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:04cdaed2fe43cdec8ecaa4fe0aa1fde9b15a0c4fc982b3be0ac07c2209e468d2",
+  "input_digest": "sha256:4b2047b796614a09bb1324b945dca56af3bb3b6ccb01eaa51b5c3397f5067628",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -437,12 +437,12 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:547d2974e34ab949d2f01fd15834355bd9d91004afd214e0eff765000520d736"
+      "hash": "sha256:2787189e3cd1c4e26162b13833b7ba73021cb259ab9aa520ab59b331f782db12"
     },
     {
       "path": "tools/harness_producers.json",
       "role": "producer_registry",
-      "hash": "sha256:565cd59218fa73f16701c61b669fbedfafa33783b85e5e303f5657f57ad84025"
+      "hash": "sha256:897881ed496827da615b456b1a451b767489f817acaed498d6138da8e4f93119"
     },
     {
       "path": "tools/harness/browser/acquire-process.mjs",
@@ -1297,7 +1297,7 @@
     {
       "path": "tools/harness/test-catalog/test-catalog.mjs",
       "role": "renderer_source",
-      "hash": "sha256:1af96ec6d563c06fbf1cf347f33e7d498f9b6d29c9d1d146a04de2ccf24e8e68"
+      "hash": "sha256:77bc0dbfb76fc81420b393aa38fae4f469cedc468bdf23a6736775f6c34c2bf7"
     },
     {
       "path": "tools/harness/test-catalog/validated-context.mjs",
@@ -1677,7 +1677,7 @@
     {
       "path": "tools/toolchain_pins.json",
       "role": "toolchain_pins",
-      "hash": "sha256:57548ded46600f36c33d5c592a6727dfd4032c96fa0f652ce78a97a99fc25ef3"
+      "hash": "sha256:84747afa9ed470e24cffae245129259500f847a3559c4b60e7dcd543222dfffe"
     },
     {
       "path": "tools/workspace_layout.json",
@@ -1692,6 +1692,6 @@
     "tools/task_surface.generated.mk": "sha256:8f5069c73a5f98974cb71a5170f7c1c869cd57547a3e99c7c956261e1d93678a",
     "tools/task_surface.help-all.generated.json": "sha256:b2cce78ee8b93844b0d357f0f6a8a24cd2b0a81a7c85b69806af1360077a23f7",
     "tools/task_surface.help.generated.json": "sha256:7b68e805ca40f6b84cb0841d0b5f7a172e421b6c2fb37fae33f9a1b0b15c69b2",
-    "tools/task_surface.runtime.generated.mk": "sha256:51b242f37fa6bb7032b99969bae40ce2fb4b2f50c8715656484788c342ab879a"
+    "tools/task_surface.runtime.generated.mk": "sha256:85242193ece5a2f9d6f24d5fd79fa335855484adb0124e4936bddf5f4b521ad9"
   }
 }

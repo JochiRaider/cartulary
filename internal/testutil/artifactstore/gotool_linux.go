@@ -22,13 +22,19 @@ const goToolImplementation = "internal/testutil/artifactstore/gotool_linux.go"
 
 // GoTool installs one pinned Go tool. Its key covers the pinned module and
 // version, the module files of the directory it builds from, the effective Go
-// settings and this producer; nothing a launcher or location contributes.
+// settings and this producer; nothing a launcher or location contributes. A
+// tool with its own command builds that command from its module directory
+// against the pinned module's library, and its key also covers the command's
+// source closure.
 type GoTool struct {
 	// Root is the repository root; ModuleDir, when set, is a module directory
 	// under it whose go.mod and go.sum select the tool's dependencies.
 	Root, ModuleDir string
 	// Module is the pinned module path and version, path@version.
 	Module string
+	// Package, when set, is the tool's own command, a ./package in ModuleDir
+	// named as the pinned tool is.
+	Package string
 	// Go is the go executable; Env is the environment it runs with.
 	Go  string
 	Env []string
@@ -55,6 +61,9 @@ func (t GoTool) installArgs() []string {
 	if t.ModuleDir == "" {
 		return []string{"install", t.Module}
 	}
+	if t.Package != "" {
+		return []string{"-C", t.ModuleDir, "install", "-mod=readonly", t.Package}
+	}
 	modulePath, _, _ := strings.Cut(t.Module, "@")
 	return []string{"-C", t.ModuleDir, "install", "-mod=readonly", modulePath}
 }
@@ -69,6 +78,18 @@ func (t GoTool) Key() (string, error) {
 	if t.ModuleDir != "" {
 		names = append(names, t.ModuleDir+"/go.mod", t.ModuleDir+"/go.sum")
 	}
+	if t.Package != "" {
+		if path.Base(t.Package) != t.Name() {
+			return "", fmt.Errorf("go tool command %s is not named %s", t.Package, t.Name())
+		}
+		closure, err := goClosure(t.Go, filepath.Join(t.Root, filepath.FromSlash(t.ModuleDir)), t.Package, "", t.Env)
+		if err != nil {
+			return "", err
+		}
+		for _, file := range closure {
+			names = append(names, t.ModuleDir+"/"+file)
+		}
+	}
 	inputs := map[string]string{}
 	for _, name := range names {
 		digest, err := fileDigest(filepath.Join(t.Root, filepath.FromSlash(name)))
@@ -81,10 +102,14 @@ func (t GoTool) Key() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data, err := json.Marshal(map[string]any{
+	record := map[string]any{
 		"schema_id": goToolKeySchemaID, "producer": t.ID(), "module": t.Module, "module_dir": t.ModuleDir,
 		"install_arguments": t.installArgs(), "outputs": []string{t.Name()}, "settings": settings, "inputs": inputs,
-	})
+	}
+	if t.Package != "" {
+		record["package"] = t.Package
+	}
+	data, err := json.Marshal(record)
 	if err != nil {
 		return "", err
 	}

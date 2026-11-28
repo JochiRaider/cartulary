@@ -51,7 +51,7 @@
     {
       "id": "browser_measurement_quiet",
       "resource_claims": {
-        "cpu": 2,
+        "cpu": 3,
         "io": 1,
         "memory_mb": 640,
         "postgres": 2,
@@ -62,7 +62,7 @@
     {
       "id": "browser_ordinary",
       "resource_claims": {
-        "cpu": 2,
+        "cpu": 3,
         "io": 1,
         "memory_mb": 640,
         "postgres": 1,
@@ -80,6 +80,24 @@
         "postgres": 2,
         "process": 12,
         "volume": 1
+      }
+    },
+    {
+      "id": "go_security_analysis",
+      "resource_claims": {
+        "cpu": 4,
+        "io": 1,
+        "memory_mb": 2304,
+        "process": 4
+      }
+    },
+    {
+      "id": "go_vulnerability_analysis",
+      "resource_claims": {
+        "cpu": 4,
+        "io": 1,
+        "memory_mb": 7168,
+        "process": 4
       }
     },
     {

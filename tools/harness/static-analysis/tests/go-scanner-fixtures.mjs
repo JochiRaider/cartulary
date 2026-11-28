@@ -10,6 +10,16 @@ export const discoveryPackages = [...authoredPackages, "github.com/JochiRaider/c
 export const analyzerDirectory = path.join(repository, "tools/go-analysis");
 export const analyzerPackage = "github.com/JochiRaider/cartulary/tools/go-analysis/errordeclaudit";
 export const discoveryArgs = ["list", "./cmd/...", "./internal/...", "./db/...", "./tools/..."];
+export const gosecProofArgs = ["-C", analyzerDirectory, "test", "-count=1", "./gosec"];
+
+// The Gosec wrappers prove their scanner on its seeded fixture, offline and
+// under the unit's CPU claim, before they scan.
+export function assertGosecProof(fixture) {
+  const proofs = fixture.calls("go");
+  assert.deepEqual(proofs.map((call) => call.args), [gosecProofArgs]);
+  assert.deepEqual([proofs[0].env.GOWORK, proofs[0].env.GOFLAGS, proofs[0].env.GOPROXY, proofs[0].env.GOMAXPROCS], ["off", "-mod=readonly", "off", "4"]);
+  assertToolEnvironment(fixture, proofs[0], false);
+}
 
 // Small fake executables record the real wrapper's boundary. They do not model
 // wrapper policy, parse findings or compute expected scanner arguments.
@@ -48,7 +58,7 @@ process.exit(config.failArgument && !args.includes(config.failArgument) ? 0 : co
     GO_CACHE_DIR: path.join(fixture.root, "cache"), GO_MOD_CACHE_DIR: path.join(fixture.root, "modules"), GO_TMP_DIR: path.join(fixture.root, "tmp"),
     TMPDIR: path.join(fixture.root, "tmp"), STATICCHECK_BIN: path.join(fixture.root, "scanner.mjs"),
     GOSEC_BIN: path.join(fixture.root, "scanner.mjs"), GOVULNCHECK_BIN: path.join(fixture.root, "scanner.mjs"),
-    CARTULARY_SEQUENCE_HOST_CPU_LIMIT: "4", CARTULARY_STEP_ARTIFACT_DIR: path.join(fixture.root, "artifacts") });
+    CARTULARY_UNIT_CPU_TOKENS: "4", CARTULARY_STEP_ARTIFACT_DIR: path.join(fixture.root, "artifacts") });
   return { ...fixture, env,
     invoke(wrapper, overrides = {}) {
       const child = spawnSync("bash", ["-c", 'umask 022; exec bash "$1"', "scanner-fixture", path.join(repository, `tools/harness/static-analysis/${wrapper}.sh`)],

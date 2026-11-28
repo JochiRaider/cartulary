@@ -15,6 +15,17 @@ GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 GOVULNCHECK_BIN="${GOVULNCHECK_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/govulncheck-v1.3.0}"
+# The admitted unit's CPU claim bounds the analyzer's parallelism, so its
+# cores stay inside host admission (TH-HARNESS-REQ-353). Outside the harness
+# the host's CPUs bound it.
+cpu_limit="${CARTULARY_UNIT_CPU_TOKENS:-}"
+if [[ -z "$cpu_limit" ]]; then
+  cpu_limit="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)"
+fi
+if [[ ! "$cpu_limit" =~ ^[1-9][0-9]*$ ]]; then
+  echo "go-vulncheck requires a positive unit CPU limit" >&2
+  exit 1
+fi
 GOVULNCHECK_FLAGS="${GOVULNCHECK_FLAGS:--test -json}"
 GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 GOVULNCHECK_DB="${GOVULNCHECK_DB:-}"
@@ -100,6 +111,7 @@ fi
 read -r -a patterns <<<"$GOVULNCHECK_PATTERNS"
 
 if ! package_output="$(
+  GOMAXPROCS="$cpu_limit" \
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
   GOTMPDIR="$GO_TMP_DIR" \
@@ -129,7 +141,8 @@ fi
 trap 'if [[ -n "$tmp_dir" ]]; then rm -rf "$tmp_dir"; fi' EXIT
 
 set +e
-env GOCACHE="$GO_CACHE_DIR" \
+env GOMAXPROCS="$cpu_limit" \
+  GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
   GOTMPDIR="$GO_TMP_DIR" \
   PATH="$(dirname "$GO_BIN"):$PATH" \
