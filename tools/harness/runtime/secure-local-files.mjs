@@ -100,6 +100,29 @@ export function readLocalFile(file, { maximum = 65536, privateFile = true, allow
     return bytes.subarray(0, offset);
   } finally { if (descriptor !== undefined) closeSync(descriptor); closeSync(parent); }
 }
+// readLocalAppendPrefix reads an append-only file as it stood when opened:
+// the bytes present then, which another process's later appends do not
+// change. Truncation, replacement and identity or permission changes fail.
+export function readLocalAppendPrefix(file, { maximum, privateFile = true }) {
+  assertMachineEvidencePath(file);
+  const parent = openDirectory(path.dirname(file));
+  let descriptor;
+  try {
+    descriptor = openSync(`/proc/self/fd/${parent}/${path.basename(file)}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const before = fstatSync(descriptor);
+    if (!before.isFile() || before.nlink !== 1 || before.uid !== process.getuid() || (before.mode & 0o022) !== 0 || (privateFile && (before.mode & 0o777) !== 0o600) || before.size > maximum) throw new Error("unsafe local file");
+    const bytes = Buffer.alloc(before.size);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (!count) break;
+      offset += count;
+    }
+    const after = fstatSync(descriptor);
+    if (offset !== before.size || after.size < before.size || before.ino !== after.ino || before.dev !== after.dev || before.mode !== after.mode || before.uid !== after.uid || after.nlink !== 1) throw new Error("changed local file");
+    return bytes;
+  } finally { if (descriptor !== undefined) closeSync(descriptor); closeSync(parent); }
+}
 export function* readLocalChunks(file, { maximum, privateFile = true, chunkBytes = 65536 }) {
   assertMachineEvidencePath(file);
   const parent = openDirectory(path.dirname(file)); let descriptor;

@@ -5,6 +5,8 @@ import test from 'node:test';
 import { repoRoot, validateSchemaSync } from '../../contract/index.mjs';
 import { buildEvidenceUnit, buildReaderEvidence, persistEvidence } from '../../observability/tests/retained-fixture.mjs';
 import { outputContext, targetSummary, stepSummary, instant } from './summary-fixtures.mjs';
+import { spawn } from 'node:child_process';
+import { loadServiceJournalEvents } from '../../services/journal-reader.mjs';
 import { validFindings, malformedFindings, startupFailure } from './diagnostic-fixtures.mjs';
 function assertExit(result, status = 0) { assert.equal(result.status, status, result.output); return result.output; }
 const resolveArtifact = (ref) => path.isAbsolute(ref) ? ref : path.join(repoRoot, ref);
@@ -104,6 +106,28 @@ test('missing run and summary-group evidence exits with artifact failure', (t) =
     s = c.read('run-summary.json');
     assert.equal(s.failure_reason, 'artifact_error');
     assert.deepEqual(s.summary_groups[0].missing_summary_targets, ['missing-browser']);
+});
+test('service journals are read while another process appends to them', async (t) => {
+    const c = outputContext(t);
+    const record = (seq) => JSON.stringify({ schema_id: 'cartulary.test_services.journal_event.v2', producer_id: 'fixture-append', seq, type: 'timing-span', timestamp: instant(2000), pid: 100, details: { target: 'other', bucket: 'service_wait', label: 'append', start_time: instant(1000), end_time: instant(2000), duration_ms: 1, status: 'pass' } }) + '\n';
+    const initial = 5000;
+    const file = c.write('_shared/test-services/suite/journals/fixture-append.ndjson', Array.from({ length: initial }, (_, i) => record(i + 1)).join(''));
+    // Another unit's fixture appends complete records while this process reads.
+    const appender = spawn(process.execPath, ['-e', `const fs = require('node:fs'); const [file, first, template] = process.argv.slice(1); let seq = Number(first);
+        const pause = new Int32Array(new SharedArrayBuffer(4)); const end = Date.now() + 1500;
+        while (Date.now() < end && seq < Number(first) + 20000) { fs.appendFileSync(file, template.replace('"seq":0', '"seq":' + seq++)); Atomics.wait(pause, 0, 0, 0.1); }`, file, String(initial + 1), record(0)], { stdio: 'ignore' });
+    const exited = new Promise((resolve) => appender.on('exit', resolve));
+    t.after(() => appender.kill());
+    let reads = 0;
+    while (appender.exitCode === null && reads < 100) {
+        const events = loadServiceJournalEvents({ resultsRoot: c.root, runId: 'run' });
+        assert.ok(events.length >= initial);
+        reads++;
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+    await exited;
+    assert.ok(reads > 0);
+    assert.ok(loadServiceJournalEvents({ resultsRoot: c.root, runId: 'run' }).length > initial, 'the appender wrote nothing');
 });
 test('failed infrastructure timing rejects otherwise passing tests; scheduled retry remains nonterminal', (t) => {
     const c = outputContext(t);

@@ -9005,8 +9005,11 @@ Every current-run service suite MUST retain `_shared/test-services/<suite-id>/se
 Each producer MUST append bounded `cartulary.test_services.journal_event.v2`
 records to one owner-only producer journal. Producer identity is stable for the
 process and `seq` starts at one and increases without gaps. Collation sorts by
-event time, producer identity, and sequence. A reader MAY ignore only an
-incomplete trailing crash record; it MUST reject a malformed completed record,
+event time, producer identity, and sequence. Producers keep appending while
+other units read, so a reader reads each journal as it stood when opened:
+later appends MUST NOT invalidate the read, while truncation or replacement
+MUST. A reader MAY ignore only an incomplete trailing record, whether a crash
+or an append in progress; it MUST reject a malformed completed record,
 duplicate sequence, or gap. Every scope refresh MUST write and sync an
 owner-only sibling, atomically replace the prior summary, and sync the
 containing directory, so readers observe one complete old or new document.

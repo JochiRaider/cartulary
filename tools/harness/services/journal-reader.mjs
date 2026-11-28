@@ -1,4 +1,4 @@
-import { readLocalFile, listLocalDirectory } from "../runtime/secure-local-files.mjs";
+import { readLocalAppendPrefix, listLocalDirectory } from "../runtime/secure-local-files.mjs";
 import path from "node:path";
 import { parseStrictJSON } from "../contract/index.mjs";
 
@@ -8,7 +8,10 @@ function producerFromFilename(filename) {
 }
 
 function readProducerJournal(file, producerId) {
-  const raw = readLocalFile(file, { maximum: 64 * 1024 * 1024 }).toString("utf8");
+  // Producers keep appending while other units read the run's journals; a
+  // read covers the records present when it opened and drops a trailing
+  // incomplete one (G74).
+  const raw = readLocalAppendPrefix(file, { maximum: 64 * 1024 * 1024 }).toString("utf8");
   const complete = raw.endsWith("\n");
   const lines = raw.split(/\n/u);
   if (!complete) lines.pop();
