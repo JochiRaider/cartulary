@@ -2504,3 +2504,26 @@ func TestStartSuiteHonorsSelectedServices(t *testing.T) {
 		})
 	}
 }
+
+// A broker generation keeps its data in memory, so the topology's PostgreSQL
+// resident claim must cover that capacity on top of the server's own budget,
+// and it holds no disk volume (TH-HARNESS-REQ-804).
+func TestPostgresResidentClaimCoversMemoryData(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "execution_topology_manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var topology struct {
+		Claims map[string]map[string]int64 `json:"physical_resource_claims"`
+	}
+	if err := json.Unmarshal(raw, &topology); err != nil {
+		t.Fatal(err)
+	}
+	claim := topology.Claims["postgres"]
+	if claim["memory_mb"]<<20 < pgtest.GenerationMemoryDataBytes+256<<20 {
+		t.Fatalf("postgres resident claims %d MB, below its %d MB memory-backed data and server budget", claim["memory_mb"], (pgtest.GenerationMemoryDataBytes>>20)+256)
+	}
+	if _, ok := claim["volume"]; ok {
+		t.Fatal("a memory-backed generation still claims a disk volume")
+	}
+}

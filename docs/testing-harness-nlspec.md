@@ -983,7 +983,9 @@ database with the existing bounded cleanup owner and retain both acquisition and
 cleanup failures. Failed CREATE MUST NOT authorize deletion of a pre-existing
 name. No consumer receives the clone before its required provisioning succeeds.
 This preserves `fsync`, full-page writes, synchronous commit, checksums, exact
-ownership, physical deletion and PostgreSQL's normal checkpoint behavior.
+ownership, physical deletion and PostgreSQL's normal checkpoint behavior. Every
+setting is the same on a memory-backed generation: its data never has to
+survive the run, so only what an `fsync` costs changes.
 Harness clusters run with `wal_compression=lz4`. A `WAL_LOG` copy logs every
 template block as a full-page image, and compression shrinks that WAL without
 changing which pages are logged, when WAL is flushed or how recovery replays
@@ -1645,9 +1647,14 @@ holds the cleanly shut down data directory and no run, suite, borrower or
 credential state; per-generation TLS material and the initialization script
 never enter it. Its key is the template digest, which binds the base image,
 every provisioning statement and the seed layout. Each use verifies the key
-label and creates the generation from the image's content ID. A generation
-copies the seed into a new anonymous volume when its container is created, so
-it never writes through copy-on-write image layers. A host-wide seed lock
+label and creates the generation from the image's content ID. A broker
+generation keeps its data directory in a memory-backed filesystem (`tmpfs`)
+capped at 4 GiB, into which its entrypoint copies the seed before PostgreSQL
+starts; its resident claim covers that capacity and holds no disk volume. A
+seed builder and a test that owns its cluster directly keep a disk volume,
+which Docker fills from the image when the container is created. Neither
+writes through copy-on-write image layers, and the medium does not enter the
+template digest: the seed is the same on both (amended 2026-11-27, G62). A host-wide seed lock
 serializes builds: holders of the shared lock pin the seeds they are about to
 use until their container exists, and only the exclusive holder builds, prunes
 or removes seed-builder containers, which that exclusion proves orphaned. A

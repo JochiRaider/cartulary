@@ -33,8 +33,12 @@ const (
 	seedRepository    = "cartulary-postgres-seed"
 	seedVolumeRoot    = "/pgseed"
 	seedDataDirectory = seedVolumeRoot + "/data"
-	seedTemplateName  = "ct_seed_template"
-	seedDigestLabel   = "org.cartulary.postgres-seed.template-digest"
+	// A memory-backed generation copies the seed here when it starts
+	// (TH-HARNESS-REQ-804).
+	memoryDataRoot      = "/pgmem"
+	memoryDataDirectory = memoryDataRoot + "/data"
+	seedTemplateName    = "ct_seed_template"
+	seedDigestLabel     = "org.cartulary.postgres-seed.template-digest"
 	// Builds keep the newest seeds so concurrent checkouts with different
 	// migrations do not rebuild each other's seed on every generation.
 	seedRetained        = 3

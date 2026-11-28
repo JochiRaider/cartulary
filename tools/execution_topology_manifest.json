@@ -616,11 +616,10 @@
   "task_surface_owner": "tools/task_surface_owner.json",
   "physical_resource_claims": {
     "postgres": {
-      "memory_mb": 256,
+      "memory_mb": 4352,
       "port_lane": 1,
       "postgres_generation": 1,
-      "process": 8,
-      "volume": 1
+      "process": 8
     },
     "object_store": {
       "memory_mb": 256,

@@ -122,7 +122,7 @@ func startOwned(ctx context.Context, options StartOptions, ops startupOperations
 	}
 	// The seed stays pinned until a created container references it.
 	defer release()
-	req := postgresContainerRequest(source)
+	req := postgresContainerRequest(source, options.MemoryDataBytes)
 	if len(options.Labels) > 0 {
 		req.Labels = cloneLabels(options.Labels)
 	}
@@ -145,15 +145,25 @@ func startOwned(ctx context.Context, options StartOptions, ops startupOperations
 
 // postgresContainerRequest is the shared physical shape. A seed builder runs
 // initdb into a data directory outside every declared volume so it can be
-// committed; a seeded generation mounts a new anonymous volume over the seed
-// path, which Docker fills from the image when the container is created.
-func postgresContainerRequest(source clusterSource) testcontainers.ContainerRequest {
+// committed. A seeded generation either mounts a new anonymous volume over the
+// seed path, which Docker fills from the image when the container is created,
+// or, given a memory budget, keeps its data directory in a tmpfs of that size,
+// into which its entrypoint copies the seed (TH-HARNESS-REQ-804). Durability
+// settings are the same on either medium.
+func postgresContainerRequest(source clusterSource, memoryDataBytes int64) testcontainers.ContainerRequest {
 	req := testcontainers.ContainerRequest{
 		Image:        source.image,
 		Name:         source.name,
 		ExposedPorts: []string{"5432/tcp"},
 		Env:          map[string]string{"PGDATA": seedDataDirectory},
 		WaitingFor:   postgresPortWaitStrategy(),
+	}
+	if source.seeded && memoryDataBytes > 0 {
+		req.Env["PGDATA"] = memoryDataDirectory
+		req.HostConfigModifier = func(host *dockercontainer.HostConfig) {
+			host.Tmpfs = map[string]string{memoryDataRoot: fmt.Sprintf("size=%d,mode=0755", memoryDataBytes)}
+		}
+		return req
 	}
 	if source.seeded {
 		req.ConfigModifier = func(config *dockercontainer.Config) {
@@ -403,7 +413,15 @@ type StartOptions struct {
 	Readiness func(suiteservices.PostgresReadinessDiagnostic)
 	// Events publishes fixture lifecycle facts in the physical owner's suite.
 	Events func(suiteservices.Event) error
+	// MemoryDataBytes, when positive, keeps a seeded generation's data
+	// directory in a memory-backed filesystem of this size instead of a disk
+	// volume. Seed builders and direct owners leave it zero.
+	MemoryDataBytes int64
 }
+
+// GenerationMemoryDataBytes is the memory-backed data capacity of a broker
+// generation. The topology's PostgreSQL resident claim covers it.
+const GenerationMemoryDataBytes = 4 << 30
 
 type postgresReadinessError struct {
 	Attempts        int

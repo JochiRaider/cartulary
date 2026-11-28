@@ -110,7 +110,8 @@ func TestPostgresSeedResolution(t *testing.T) {
 			t.Fatal(err)
 		}
 		release()
-		req := postgresContainerRequest(source)
+		// A memory budget never reaches a builder: its data directory is committed.
+		req := postgresContainerRequest(source, GenerationMemoryDataBytes)
 		if source.seeded || req.Image != postgresImage || req.Name != "cartulary-postgres-seed-build-test" || req.ConfigModifier != nil {
 			t.Fatalf("builder request = %#v", req)
 		}
@@ -127,6 +128,41 @@ func TestPostgresSeedResolution(t *testing.T) {
 		}
 		if !strings.HasPrefix(seedDataDirectory, seedVolumeRoot+"/") || strings.HasPrefix(seedDataDirectory, "/var/lib/postgresql") {
 			t.Fatal("seed data directory must sit under the seed volume and outside the base image volume")
+		}
+	})
+	t.Run("seeded_generation_keeps_its_data_on_the_selected_medium", func(t *testing.T) {
+		source := clusterSource{image: "sha256:seed", seeded: true}
+		disk := postgresContainerRequest(source, 0)
+		config := &dockercontainer.Config{}
+		disk.ConfigModifier(config)
+		if disk.Env["PGDATA"] != seedDataDirectory || disk.HostConfigModifier != nil || len(config.Volumes) != 1 {
+			t.Fatalf("disk generation = %#v volumes %v", disk.Env, config.Volumes)
+		}
+		memory := postgresContainerRequest(source, 1<<30)
+		host := &dockercontainer.HostConfig{}
+		memory.HostConfigModifier(host)
+		if memory.Env["PGDATA"] != memoryDataDirectory || memory.ConfigModifier != nil || host.Tmpfs[memoryDataRoot] != "size=1073741824,mode=0755" || len(host.Tmpfs) != 1 {
+			t.Fatalf("memory generation = %#v tmpfs %v", memory.Env, host.Tmpfs)
+		}
+		// Only the memory-backed generation copies the seed before PostgreSQL
+		// starts; the server command, and so every durability setting, is the
+		// same on both media.
+		for _, c := range []struct {
+			req  testcontainers.ContainerRequest
+			copy bool
+		}{{disk, false}, {memory, true}} {
+			withTLS, directory, err := preparePostgresTLS(c.req, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.RemoveAll(directory) })
+			script := withTLS.Entrypoint[2]
+			if strings.Contains(script, "cp -a "+seedDataDirectory+" "+memoryDataDirectory+";") != c.copy || !strings.HasSuffix(script, `exec /usr/local/bin/docker-entrypoint.sh "$@"`) {
+				t.Fatalf("entrypoint %q", script)
+			}
+			if !slices.Equal(withTLS.Cmd, postgresServerCommand()) {
+				t.Fatalf("server command %v", withTLS.Cmd)
+			}
 		}
 	})
 	t.Run("present_seed_is_returned_pinned_without_a_build", func(t *testing.T) {

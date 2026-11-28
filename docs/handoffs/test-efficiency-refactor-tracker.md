@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 are done (16.6 to 16.11). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-4 and G62 are done (16.6 to 16.12). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1403,6 +1403,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-2b / G58 | Closed run-root top level enforced by the runtime; fixture copies and test evidence under `unit-artifacts/<unit>/`; Node Network Flow comparisons release inputs after a pass; target-less nested steps stay in their enclosing step; the P7-2a registry entry added | `p7-2b-seg-*` (16 segments and their rechecks), `p7-2-check01` | Pass after the registry fix. `check` root 64 MB with only declared entries (16.9) |
 | 2026-11-27 | P7-3 / G59 | Post-graph time measured after G56 to G58; `ci` projected from its retained composition; no remedy needed | `p7-0-split-check`, `p7-2-check01`, `p6-6-ci04` | `check` 11.1 to 4.5 s outside the graph; `ci` projected 30 to about 6 s, confirmed in P7-6 (16.10) |
 | 2026-11-27 | P7-4 / G60, G64 | Look-ahead reservation over the whole need chain; estimates refreshed from current runs; pool-aware rank (D42); the entry producer's records declared | `p7-4-check01` to `-check03`, `p7-4-ci01`, `-ci02` (cancelled), `-ci03`, segments | `check` 477 s graph (483 s outer); `ci` 1,219 s graph, first cohorts at 5.8 s (16.11) |
+| 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6677,3 +6678,56 @@ receipt gives the scan interval, and file times give the publication phases.
   - Then `p7-4-check03` and `p7-4-ci03`, both passing.
   - `p7-4-ci02` was cancelled at the owner's request with SIGINT to the
     graph, which drained cleanly; recovery status shows nothing stranded.
+
+### 16.12 RAM-Backed PostgreSQL Generations (P7-5a, G62)
+
+- **Host change.** The owner raised the WSL allotment to 47 GiB and 24 CPUs
+  before this step. The capability snapshot now gives 48,172 MB of memory;
+  CPU tokens stay at 19 and generations at 8. Every baseline was retaken on
+  the new host: `p7-5-base-check01`, still disk-backed, runs a 481 s graph
+  (487 s outer), with 3,689 PostgreSQL unit-seconds and at least 29.7 GB
+  available.
+- **Claim (D40).** On the old 31 GiB host, eight generations claiming a 4 GiB
+  cap would have taken 32 GiB, so the step paused while the owner added
+  memory. On 48 GiB the approved rule fits: each generation's resident
+  claims its 4 GiB data cap plus the 256 MB server budget, 4,352 MB, and no
+  disk volume. Eight claim 34.8 GB.
+- **Change.**
+  - A broker generation, the one `testservices` starts, mounts a 4 GiB
+    tmpfs at `/pgmem`. Its entrypoint copies the 75 MB seed into it before
+    the stock PostgreSQL entrypoint runs; Docker does not fill a tmpfs mount
+    from the image.
+  - Seed builders, whose data directory is committed, and tests that own a
+    cluster directly keep a disk volume.
+  - `fsync`, full-page writes, synchronous commit, checksums and
+    `wal_compression=lz4` are unchanged, as verified on a live generation.
+  - The medium does not enter the template digest: the seed is the same on
+    both media, so no seed rebuilds. This departs from G62's text, which put
+    the medium into the provisioning identity.
+  - The spec's seed and clone paragraphs now describe both media.
+    `TestPostgresResidentClaimCoversMemoryData` (new) ties the topology
+    claim to `pgtest.GenerationMemoryDataBytes`; a new `pgtest` case covers
+    each medium's mount and entrypoint.
+- **Gate.**
+
+  | Run | Graph | PostgreSQL unit-s | Minimum available | tmpfs peak | OOM kills |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | `p7-5-base-check01` (disk) | 481 s | 3,689 | 29.7 GB | — | 0 |
+  | `p7-5-check01` | 447 s | 3,402 | 22.5 GB | 13.3 GB | 0 |
+  | `p7-5-check02` | 428 s | 3,266 | 19.1 GB | 13.2 GB | 0 |
+  | `p7-5-ci01` | 1,167 s | 8,281 | 22.0 GB | 7.2 GB | 0 |
+
+  - The REQ-804 acceptance rows passed alone: template preparation (durable
+    WAL progress, template and clone isolation), transaction isolation,
+    cleanup, native fixtures, the `pgtest` and `testservices` contracts,
+    `platform.postgres`, `module.database_migrations` and all 50
+    `module.recovery` rows.
+  - `p7-5-ci01` failed one unit, and the cause was mine. The local-session
+    contract's nested-startup case sized its private ledger for the old
+    512 MB resident (1,536 MB), and the session's resident now claims
+    4,608 MB. The test now derives its capacities from the topology claims,
+    keeping its 256 MB of slack. It passed in `p7-5-seg-contract`. The P7-5
+    segments had not included `harness-contract SUITE=contract`, which holds
+    this `ci`-only test; that is the P6-3 lesson again.
+  - All of `ci`'s 502 other units passed in a 1,167 s graph, under the
+    1,200 s target for the first time.

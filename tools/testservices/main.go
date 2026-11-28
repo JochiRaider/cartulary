@@ -1736,9 +1736,12 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 func startPostgresServiceWith(ctx context.Context, env map[string]string, start func(context.Context, pgtest.StartOptions) (*pgtest.OwnedCluster, error)) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
 	harness, err := start(ctx, pgtest.StartOptions{
-		Labels:   labels,
-		Observer: suiteServiceStartObserver(env, suiteservices.ServicePostgres),
-		Events:   func(event suiteservices.Event) error { return suiteservices.RecordEvent(env, event) },
+		Labels: labels,
+		// Broker generations are discarded with their run, so their data lives
+		// in memory with unchanged durability settings (TH-HARNESS-REQ-804).
+		MemoryDataBytes: pgtest.GenerationMemoryDataBytes,
+		Observer:        suiteServiceStartObserver(env, suiteservices.ServicePostgres),
+		Events:          func(event suiteservices.Event) error { return suiteservices.RecordEvent(env, event) },
 		Readiness: func(diagnostic suiteservices.PostgresReadinessDiagnostic) {
 			_ = suiteservices.RecordEvent(env, suiteservices.Event{Type: suiteservices.EventPostgresReady, Details: map[string]any{suiteservices.PostgresReadinessExtensionKey: diagnostic}})
 		},

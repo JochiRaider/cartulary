@@ -253,14 +253,19 @@ test("local lifecycle holds its lock and publishes no service until queued admis
 test("nested persistent startup shares its ancestor envelope and retains residency after the ancestor exits", async () => {
   const fixture = sessionFixture();
   const root = path.join(fixture.temporary, "admission");
-  const capacities = hostClaims({ cpu: 2, io: 4, memory_mb: 1536, process: 32, object_store: 1, postgres: 1, postgres_generation: 1, port_lane: 2, volume: 1 });
+  // The session's resident is the topology's PostgreSQL and object-store
+  // claims. The enclosing test and an unrelated sibling each reserve room for
+  // it with 256 MB to spare, and together they fill the host.
+  const physical = JSON.parse(readFileSync(path.join(repositoryRoot, "tools/execution_topology_manifest.json"), "utf8")).physical_resource_claims;
+  const reservation = physical.postgres.memory_mb + physical.object_store.memory_mb + 256;
+  const capacities = hostClaims({ cpu: 2, io: 4, memory_mb: 2 * reservation, process: 32, object_store: 1, postgres: 1, postgres_generation: 1, port_lane: 2, volume: 1 });
   const leases = [];
   const pendingToken = "c".repeat(32), contenderToken = "d".repeat(32);
   let resident;
   const transaction = request => transactAdmission({ ...request, root });
   try {
-    const parent = await acquireHostAdmission({ root, capacities, claims: { cpu: 1, memory_mb: 768, process: 20 } }); leases.push(parent);
-    const sibling = await acquireHostAdmission({ root, capacities, claims: { cpu: 1, memory_mb: 768, process: 12 } }); leases.push(sibling);
+    const parent = await acquireHostAdmission({ root, capacities, claims: { cpu: 1, memory_mb: reservation, process: 20 } }); leases.push(parent);
+    const sibling = await acquireHostAdmission({ root, capacities, claims: { cpu: 1, memory_mb: reservation, process: 12 } }); leases.push(sibling);
     fixture.dependencies.admission = transaction;
     fixture.dependencies.acquireAdmission = async options => {
       assert.equal(options.parent, parent.token);

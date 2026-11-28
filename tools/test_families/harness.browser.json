@@ -3130,6 +3130,7 @@
           "TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity",
           "TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned",
           "TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup",
+          "TestPostgresResidentClaimCoversMemoryData",
           "TestPrepareWebE2ECleansFixtureWhenEnvWriteFails",
           "TestPrepareWebE2ERequiresActiveSuiteAndTemplate",
           "TestPrepareWebE2EWritesShellEnvAndMetadata",

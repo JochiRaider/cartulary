@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
@@ -96,7 +97,13 @@ func preparePostgresTLS(req testcontainers.ContainerRequest, initScript bool) (_
 		}
 		req.Files = append(req.Files, testcontainers.ContainerFile{HostFilePath: initPath, ContainerFilePath: postgresInitScriptPath, FileMode: 0o644})
 	}
-	req.Entrypoint = []string{"/bin/sh", "-ec", "chown postgres:postgres /etc/cartulary-postgres-tls/server.key; exec /usr/local/bin/docker-entrypoint.sh \"$@\"", "--"}
+	steps := []string{"chown postgres:postgres " + postgresTLSContainerRoot + "/server.key"}
+	if req.Env["PGDATA"] == memoryDataDirectory {
+		// Docker does not fill a tmpfs mount from the image, so a memory-backed
+		// generation copies the seed in before PostgreSQL starts.
+		steps = append(steps, "cp -a "+seedDataDirectory+" "+memoryDataDirectory)
+	}
+	req.Entrypoint = []string{"/bin/sh", "-ec", strings.Join(steps, "; ") + "; exec /usr/local/bin/docker-entrypoint.sh \"$@\"", "--"}
 	req.Cmd = postgresServerCommand()
 	ok = true
 	return req, directory, nil
