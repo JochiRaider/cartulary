@@ -1404,7 +1404,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-3 / G59 | Post-graph time measured after G56 to G58; `ci` projected from its retained composition; no remedy needed | `p7-0-split-check`, `p7-2-check01`, `p6-6-ci04` | `check` 11.1 to 4.5 s outside the graph; `ci` projected 30 to about 6 s, confirmed in P7-6 (16.10) |
 | 2026-11-27 | P7-4 / G60, G64 | Look-ahead reservation over the whole need chain; estimates refreshed from current runs; pool-aware rank (D42); the entry producer's records declared | `p7-4-check01` to `-check03`, `p7-4-ci01`, `-ci02` (cancelled), `-ci03`, segments | `check` 477 s graph (483 s outer); `ci` 1,219 s graph, first cohorts at 5.8 s (16.11) |
 | 2026-11-28 | P7-5a / G62 | Broker PostgreSQL generations on a 4 GiB tmpfs with unchanged durability; resident claim 4,352 MB with no disk volume; baselines retaken on the 47 GiB host | `p7-5-base-check01`, `p7-5-seg-*`, `p7-5-check01`, `-check02`, `p7-5-ci01` | Gate passed on `check` (481 to 447 and 428 s); `ci` 1,167 s with one test fixed after (16.12) |
-| 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Proposed; awaiting the owner's decisions (16.13) |
+| 2026-11-28 | P7-5 continuation plan | Traced why G62's gain was modest and what limits next; proposed G65 to G70, P7-5b to P7-5g and D43 to D47 | `p7-5-base-check01`, `p7-5-check01`, `-check02`, `p7-5-ci01`, `p7-5-gen10-check01`, `-check02` | Approved as recommended (16.13) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6735,8 +6735,8 @@ receipt gives the scan interval, and file times give the publication phases.
 
 ### 16.13 P7-5 Continuation Plan — Memory Accounting, Slots and Lanes
 
-Status: proposed 2026-11-28 after G62. It replaces the rest of P7-5 (16.3)
-and keeps G61 at its end.
+Status: proposed 2026-11-28 after G62; D43 to D47 approved as recommended
+the same day. It replaces the rest of P7-5 (16.3) and keeps G61 at its end.
 
 #### Findings
 
@@ -6978,8 +6978,8 @@ and keeps G61 at its end.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D43 | Generation memory charge | Size by resident profile from measured peaks with a 1.5 margin, and charge exactly that size; no overcommit. Rejected: expected-size charges under one 4 GiB cap (admission stops bounding use), and per-unit observed sizes (more exact, but a new observation channel; it remains a later option). |
-| D44 | Generation count | Measure 8, 10 and 12 after D43 and adopt through G66's gate; keep 8 until it passes. |
-| D45 | Service CPU | Charge it only if G67's measurement shows the margin exceeded. |
-| D46 | Object store | Move broker stores to tmpfs through G68's gate; restarting suites and SeaweedFS gate instances stay on disk. |
-| D47 | Direct owners and browser data | Measure first; act only at 5% or more of a command's wall time. |
+| D43 | Generation memory charge | Size by resident profile from measured peaks with a 1.5 margin, and charge exactly that size; no overcommit. Rejected: expected-size charges under one 4 GiB cap (admission stops bounding use), and per-unit observed sizes (more exact, but a new observation channel; it remains a later option). **Approved 2026-11-28** |
+| D44 | Generation count | Measure 8, 10 and 12 after D43 and adopt through G66's gate; keep 8 until it passes. **Approved 2026-11-28** |
+| D45 | Service CPU | Charge it only if G67's measurement shows the margin exceeded. **Approved 2026-11-28** |
+| D46 | Object store | Move broker stores to tmpfs through G68's gate; restarting suites and SeaweedFS gate instances stay on disk. **Approved 2026-11-28** |
+| D47 | Direct owners and browser data | Measure first; act only at 5% or more of a command's wall time. **Approved 2026-11-28** |
