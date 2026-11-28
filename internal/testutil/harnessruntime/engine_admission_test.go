@@ -366,3 +366,114 @@ func TestRuntimeReservationCoversResidents(t *testing.T) {
 		t.Fatal("resident claims are not part of the reservation check")
 	}
 }
+
+// A unit's host lease spans its admitted lifetime: the worker settles its
+// physical state before evidence write, and the scheduler returns the ledger
+// reservation with the terminal event, so the projected pressure is the
+// ledger's (G71).
+func TestRuntimeHostLeaseLifetime(t *testing.T) {
+	t.Run("the ledger holds a unit through evidence write and projected use never exceeds it", func(t *testing.T) {
+		ids := []string{"a", "b", "c", "d", "e", "f"}
+		units := []unit{}
+		for i, id := range ids {
+			units = append(units, engineUnit(id, int64(len(ids)-i)))
+		}
+		p := enginePlan(units...)
+		p.facts.Capacities["cpu"] = 2
+		ledger := newFakeLedger(map[string]int64{"cpu": 2})
+		var settled atomic.Int64
+		admission := &settlingLedger{fakeLedger: ledger, settle: func(context.Context) error { settled.Add(1); return nil }}
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Admission: admission, Execute: func(context.Context, executionRequest) unitResult {
+			return unitResult{Status: "passed"}
+		}, Terminal: func(u unit, _ *unitResult) error {
+			ledger.mu.Lock()
+			held := ledger.used["cpu"]
+			ledger.mu.Unlock()
+			if held < u.Claims["cpu"] {
+				t.Error("evidence write ran after the host lease was released", u.ID)
+			}
+			time.Sleep(5 * time.Millisecond)
+			return nil
+		}})
+		if r.Status != "passed" || settled.Load() != int64(len(ids)) || ledger.used["cpu"] != 0 {
+			t.Fatal("lease lifecycle", r.Status, settled.Load(), ledger.used)
+		}
+		releases := 0
+		for _, record := range r.Cleanup {
+			if record.Operation == "host_release" {
+				releases++
+				if record.Outcome != "completed" {
+					t.Fatal("host release failed", record)
+				}
+			}
+		}
+		if releases != len(ids) {
+			t.Fatal("host release records", releases)
+		}
+		facts := newCanonicalFacts(p)
+		for _, event := range r.Events {
+			if err := facts.consume(event); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := facts.validate(); err != nil {
+			t.Fatal(err)
+		}
+		if peak := facts.pressure()["peak_use"].(map[string]int64)["cpu"]; peak > 2 {
+			t.Fatal("projected CPU use exceeds the ledger's capacity", peak)
+		}
+	})
+	t.Run("a settlement failure fails its unit and the ledger is still released", func(t *testing.T) {
+		ledger := newFakeLedger(map[string]int64{"cpu": 1})
+		admission := &settlingLedger{fakeLedger: ledger, settle: func(context.Context) error { return failed("harness", "cleanup_error") }}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		r, _ := executeGraph(ctx, enginePlan(engineUnit("a", 1)), enginePorts{Admission: admission, Execute: func(context.Context, executionRequest) unitResult {
+			return unitResult{Status: "passed"}
+		}})
+		failure := r.Units["a"].Failure
+		if r.States["a"] != "failed" || failure == nil || failure.Lifecycle != "cleanup_finalizers" || ledger.used["cpu"] != 0 {
+			t.Fatal("settlement failure", r.States, failure, ledger.used)
+		}
+		var records []cleanupRecord
+		for _, record := range r.Cleanup {
+			if record.Operation == "host_release" {
+				records = append(records, record)
+			}
+		}
+		if len(records) != 1 || records[0].Outcome != "failed" {
+			t.Fatal("one failed host release record", records)
+		}
+	})
+	t.Run("a ledger release failure fails the run", func(t *testing.T) {
+		ledger := newFakeLedger(map[string]int64{"cpu": 1})
+		admission := &settlingLedger{fakeLedger: ledger, release: errors.New("ledger unavailable")}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_, err := executeGraph(ctx, enginePlan(engineUnit("a", 1)), enginePorts{Admission: admission, Execute: func(context.Context, executionRequest) unitResult {
+			return unitResult{Status: "passed"}
+		}})
+		if err == nil || failureOf(err).Lifecycle != "cleanup_finalizers" {
+			t.Fatal("a ledger release failure did not fail the run", err)
+		}
+	})
+}
+
+// settlingLedger gives each lease a settlement step and can fail releases.
+type settlingLedger struct {
+	*fakeLedger
+	settle  func(context.Context) error
+	release error
+}
+
+func (l *settlingLedger) TryAdmit(ctx context.Context, u unit) (*hostLease, bool, error) {
+	lease, granted, err := l.fakeLedger.TryAdmit(ctx, u)
+	if lease != nil {
+		lease.Settle = l.settle
+		if l.release != nil {
+			release := lease.Release
+			lease.Release = func(ctx context.Context) error { return errors.Join(release(ctx), l.release) }
+		}
+	}
+	return lease, granted, err
+}

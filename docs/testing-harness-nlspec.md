@@ -634,7 +634,9 @@ Family-specific capacity-forwarding variables are unsupported after cutover.
 Graph-backed public commands MAY accept one schema-validated capacity override
 declaration file through `CARTULARY_HARNESS_CAPACITY_OVERRIDE`; inline JSON is
 unsupported. Every override is range checked and recorded with its source in
-the run manifest. `VITEST_MAX_WORKERS` applies only to matching runner units
+the run manifest. Preparation resolves it once; it is cleared from every unit
+environment and never forwarded to one, so a nested command cannot resolve
+the caller's override again. `VITEST_MAX_WORKERS` applies only to matching runner units
 and its effect MUST be represented by their resource claims. `BROWSER_LANES`
 is a logical upper bound, not admitted host capacity. The authored topology owns
 its default of four and maximum of six. Six is opt-in. Host-bounded service and
@@ -5518,7 +5520,18 @@ Graph-backed targets expose scheduler state through the canonical event stream,
 run summary, and target projections. There is no nested scheduler artifact
 family. Resource pressure is projected from unit claims and canonical events
 and includes requested and resolved capacity, peak use, saturation duration,
-wait count, blocked units, blocking resources, and actual holders. Readiness,
+wait count, blocked units, blocking resources, and actual holders.
+
+A unit's host lease spans its admitted lifetime. Its worker settles the
+physical state the work holds, such as a renderer slot or browser stack, under
+the lease before evidence write; a settlement failure is the unit's cleanup
+failure. The scheduler returns the ledger reservation in the same step that
+records the unit's terminal event, so no admission is sequenced between them;
+a ledger release failure fails the run. Resource pressure charges a physical
+claim from the unit's host grant, which is its admission unless its worker
+waited in host admission after it, and a graph-local claim from admission,
+each until the terminal event. Peak use therefore never exceeds resolved
+capacity. Readiness,
 fixture, cache, browser, and build work is diagnosable by first-class unit ID
 and evidence references rather than inferred target-name maps.
 

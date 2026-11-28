@@ -26,6 +26,10 @@ const (
 	// makeInputSources is always cleared and never forwarded: a unit must not
 	// inherit the enclosing Make invocation's input provenance.
 	makeInputSources = "CARTULARY_MAKE_INPUT_SOURCES"
+	// capacityOverrideInput is always cleared and never forwarded: preparation
+	// resolves capacity once, and a child that re-read the caller's override
+	// would resolve it again against its own working directory.
+	capacityOverrideInput = "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
 	// maximumArgumentBytes keeps every command argument well inside the
 	// kernel's per-argument limit (128 KiB).
 	maximumArgumentBytes = 32 << 10
@@ -275,7 +279,10 @@ func (p *Plan) validate() error {
 		return fail("input environment must clear a sorted set including %s", makeInputSources)
 	}
 	for name := range p.InputEnvironment.Forward {
-		if name == makeInputSources || !slices.Contains(cleared, name) {
+		switch {
+		case name == makeInputSources || name == capacityOverrideInput:
+			return fail("input environment forwards %s, which no unit may receive", name)
+		case !slices.Contains(cleared, name):
 			return fail("input environment forwards %s without clearing it", name)
 		}
 	}

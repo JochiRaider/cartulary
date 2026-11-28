@@ -114,6 +114,10 @@ export function canonicalTimingAccounting(
   };
 }
 
+// The graph scheduler alone charges browser lanes; host admission has no such
+// resource.
+const graphLocalBrowserLanes = "browser_lane";
+
 export function projectResourcePressure(facts, graph, capacities) {
   const byID = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
   const active = new Map();
@@ -139,19 +143,27 @@ export function projectResourcePressure(facts, graph, capacities) {
       saturationStart.delete(resource);
     }
   };
+  // A unit holds its claims for its admitted lifetime, the scheduler
+  // releasing its host lease with the terminal event. Physical claims start at
+  // the host grant, which follows graph admission only when the unit's worker
+  // waited in host admission; graph-local browser lanes start at admission.
   const boundaries = [];
   for (const [id, admission] of facts.admissions) {
-    boundaries.push({ id, time: admission.time, seq: admission.seq, direction: 1 });
+    const grant = facts.grants.get(id) ?? admission;
+    boundaries.push({ id, time: admission.time, seq: admission.seq, direction: 1, physical: false },
+      { id, time: grant.time, seq: grant.seq, direction: 1, physical: true });
     const terminal = facts.terminals.get(id);
     if (terminal && ["completed", "failed", "cancelled"].includes(terminal.event)) {
-      boundaries.push({ id, time: terminal.monotonic_ms, seq: terminal.seq, direction: -1 });
+      for (const physical of [false, true]) boundaries.push({ id, time: terminal.monotonic_ms, seq: terminal.seq, direction: -1, physical });
     }
   }
   boundaries.sort((a, b) => a.seq - b.seq);
   for (const boundary of boundaries) {
     const unit = byID.get(boundary.id);
     if (!unit) continue;
-    for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, boundary.direction * amount, boundary);
+    for (const [resource, amount] of Object.entries(unit.resource_claims)) {
+      if ((resource !== graphLocalBrowserLanes) === boundary.physical) add(resource, boundary.direction * amount, boundary);
+    }
   }
   const completedAt = facts.finalMonotonicMs;
   for (const [resource, startedAt] of saturationStart) {

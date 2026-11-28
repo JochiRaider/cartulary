@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 )
 
 var errCanonical = errors.New("canonical graph accounting does not close")
@@ -39,17 +41,20 @@ type canonicalFacts struct {
 	starts, fixtures, eligibleAt map[string]int64
 	waits                        map[string]canonicalWait
 	admissions                   map[string]canonicalAdmission
-	terminals                    map[string]canonicalTerminal
-	phases                       map[string]canonicalPhase
-	phaseCounts                  map[string]int
-	cache                        map[string]int64
-	seq, finalMS                 int64
-	started, completed           bool
-	cleanupStarted               *int64
+	// grants are host admissions a worker completed after the unit's graph
+	// admission; its physical claims start there.
+	grants             map[string]canonicalAdmission
+	terminals          map[string]canonicalTerminal
+	phases             map[string]canonicalPhase
+	phaseCounts        map[string]int
+	cache              map[string]int64
+	seq, finalMS       int64
+	started, completed bool
+	cleanupStarted     *int64
 }
 
 func newCanonicalFacts(p *Plan) *canonicalFacts {
-	f := &canonicalFacts{plan: p, byID: map[string]unit{}, registered: map[string]bool{}, eligible: map[string]bool{}, hits: map[string]bool{}, starts: map[string]int64{}, eligibleAt: map[string]int64{}, fixtures: map[string]int64{}, waits: map[string]canonicalWait{}, admissions: map[string]canonicalAdmission{}, terminals: map[string]canonicalTerminal{}, phases: map[string]canonicalPhase{}, phaseCounts: map[string]int{}, cache: map[string]int64{"hit": 0, "miss": 0, "bypass": 0}}
+	f := &canonicalFacts{plan: p, byID: map[string]unit{}, registered: map[string]bool{}, eligible: map[string]bool{}, hits: map[string]bool{}, starts: map[string]int64{}, eligibleAt: map[string]int64{}, fixtures: map[string]int64{}, waits: map[string]canonicalWait{}, admissions: map[string]canonicalAdmission{}, grants: map[string]canonicalAdmission{}, terminals: map[string]canonicalTerminal{}, phases: map[string]canonicalPhase{}, phaseCounts: map[string]int{}, cache: map[string]int64{"hit": 0, "miss": 0, "bypass": 0}}
 	for _, u := range p.facts.Graph.Units {
 		f.byID[u.ID] = u
 	}
@@ -298,6 +303,9 @@ func (f *canonicalFacts) consume(e map[string]any) error {
 		p.closed = true
 		p.outcome = e["phase_outcome"].(string)
 		f.phases[phase] = p
+		if _, admitted := f.admissions[id]; admitted && p.phase == "host_admission" && p.outcome == "completed" {
+			f.grants[id] = canonicalAdmission{at, seq}
+		}
 	case "completed", "failed", "skipped", "cancelled":
 		want := map[string]string{"completed": "passed", "failed": "failed", "skipped": "skipped", "cancelled": "cancelled"}[event]
 		if status != want {
@@ -504,16 +512,26 @@ func (f *canonicalFacts) timing(selected []string, duration int64, envelope bool
 	return totals
 }
 func (f *canonicalFacts) pressure() map[string]any {
+	// A unit holds its claims for its admitted lifetime, the scheduler
+	// releasing its host lease with the terminal event (G71). Physical claims
+	// start at the host grant, which follows graph admission only when the
+	// unit's worker waited in host admission; graph-local claims start at
+	// graph admission.
 	type boundary struct {
 		id                 string
 		at, seq, direction int64
+		physical           bool
 	}
 	boundaries := []boundary{}
 	for id, a := range f.admissions {
-		boundaries = append(boundaries, boundary{id, a.at, a.seq, 1})
+		grant, ok := f.grants[id]
+		if !ok {
+			grant = a
+		}
+		boundaries = append(boundaries, boundary{id, a.at, a.seq, 1, false}, boundary{id, grant.at, grant.seq, 1, true})
 		terminal := f.terminals[id]
 		if terminal.event == "completed" || terminal.event == "failed" || terminal.event == "cancelled" {
-			boundaries = append(boundaries, boundary{id, terminal.at, terminal.seq, -1})
+			boundaries = append(boundaries, boundary{id, terminal.at, terminal.seq, -1, false}, boundary{id, terminal.at, terminal.seq, -1, true})
 		}
 	}
 	slices.SortFunc(boundaries, func(a, b boundary) int { return cmp.Compare(a.seq, b.seq) })
@@ -521,6 +539,9 @@ func (f *canonicalFacts) pressure() map[string]any {
 	volumes := map[string]int64{}
 	for _, b := range boundaries {
 		for resource, amount := range f.byID[b.id].Claims {
+			if (resource != harnessplan.BrowserLaneResource) != b.physical {
+				continue
+			}
 			before := active[resource]
 			after := before + b.direction*amount
 			if resource == "volume" {

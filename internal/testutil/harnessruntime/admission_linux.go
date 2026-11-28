@@ -45,13 +45,7 @@ func nativeAdmission(capacities map[string]int64, parent *string, root string, p
 			}
 			return nil, errors.Join(primary, err)
 		}
-		return &hostLease{Token: lease.Token, Release: func(ctx context.Context) error {
-			var err error
-			if finish != nil {
-				err = finish(ctx)
-			}
-			return errors.Join(err, lease.Release(ctx))
-		}, Bind: lease.Bind}, nil
+		return &hostLease{Token: lease.Token, Bind: lease.Bind, Settle: finish, Release: lease.Release}, nil
 	}
 }
 
@@ -120,9 +114,7 @@ func (p *nativeAdmissionPort) TryAdmit(ctx context.Context, u unit) (*hostLease,
 	if err != nil || !granted {
 		return nil, false, err
 	}
-	return &hostLease{Token: lease.Token, Bind: lease.Bind, Release: func(ctx context.Context) error {
-		return errors.Join(finish(ctx), lease.Release(ctx))
-	}}, true, nil
+	return &hostLease{Token: lease.Token, Bind: lease.Bind, Settle: finish, Release: lease.Release}, true, nil
 }
 
 func (p *nativeAdmissionPort) Changed() <-chan struct{} { return p.changes }

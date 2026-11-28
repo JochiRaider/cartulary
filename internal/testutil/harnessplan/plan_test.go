@@ -109,6 +109,7 @@ func TestPlanAssembly(t *testing.T) {
 			"lane limit disagrees with input": func(i *Invocation) { i.DeclaredInputs["BROWSER_LANES"] = "2" },
 			"forwarded input not cleared":     func(i *Invocation) { i.InputEnvironment.Forward["OTHER"] = "x" },
 			"Make input sources forwarded":    func(i *Invocation) { i.InputEnvironment.Forward[makeInputSources] = "x" },
+			"capacity override forwarded":     func(i *Invocation) { i.InputEnvironment.Forward[capacityOverrideInput] = "x" },
 			"unknown cache mode":              func(i *Invocation) { i.CacheMode = "warm" },
 			"cache facts out of order":        func(i *Invocation) { i.Cache[0], i.Cache[len(i.Cache)-1] = i.Cache[len(i.Cache)-1], i.Cache[0] },
 			"cache fact missing":              func(i *Invocation) { i.Cache = i.Cache[1:] },

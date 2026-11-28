@@ -35,7 +35,6 @@ const (
 	runIDEnvironment           = "CARTULARY_TEST_RUN_ID"
 	hostAdmissionLease         = "CARTULARY_HOST_ADMISSION_LEASE"
 	inheritedUnitCPUTokens     = "CARTULARY_UNIT_CPU_TOKENS"
-	capacityOverrideInput      = "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
 	cacheModeInput             = "CARTULARY_HARNESS_CACHE_MODE"
 	instrumentationModeInput   = "HARNESS_DIAGNOSTICS"
 	machineCacheEnvironment    = "CARTULARY_MACHINE_CACHE_DIR"
@@ -179,7 +178,9 @@ func commandInputs(in *Inputs, resolved command, root string, bindings map[strin
 		if redacted {
 			declared[name] = redaction.Replacement
 		}
-		if _, bound := bindings[name]; bound {
+		// Preparation consumes the capacity override into the snapshot the
+		// manifest records; no child receives capacity (TH-HARNESS-REQ-354).
+		if _, bound := bindings[name]; bound || name == capacityOverrideInput {
 			continue
 		}
 		if forwarding := input.Definition.ChildForwarding; forwarding != "runtime_env" && forwarding != "argv_and_runtime_env" {

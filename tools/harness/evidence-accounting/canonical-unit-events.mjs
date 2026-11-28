@@ -164,6 +164,9 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   let finalMonotonicMs = 0;
   const waits = new Map();
   const admissions = new Map();
+  // Host admissions a worker completed after graph admission; the unit's
+  // physical claims start there (TH-HARNESS-REQ-353 pressure, G71).
+  const grants = new Map();
   const fixtureAcquired = new Map();
   const cache = { hit: 0, miss: 0, bypass: 0 };
   let cleanupStarted = null;
@@ -208,6 +211,9 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       if (!phase || phase.end_ms !== null || phase.unit_id !== event.unit_id || phase.phase !== event.phase || terminals.has(event.unit_id)) throw new Error("unmatched phase finish");
       phase.end_ms = event.monotonic_ms;
       phase.outcome = event.phase_outcome;
+      if (phase.phase === "host_admission" && phase.outcome === "completed" && admissions.has(event.unit_id)) {
+        grants.set(event.unit_id, { time: event.monotonic_ms, seq: event.seq });
+      }
     }
     if (event.event === "eligible") {
       if (eligible.has(event.unit_id)) {
@@ -326,7 +332,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   }
   return {
     eventDigest: `sha256:${digest.digest("hex")}`,
-    intervals, waits, admissions, fixtureAcquired, cache, cleanupStarted, cleanupCompleted,
+    intervals, waits, admissions, grants, fixtureAcquired, cache, cleanupStarted, cleanupCompleted,
     eventCount,
     finalMonotonicMs,
     runStarted,

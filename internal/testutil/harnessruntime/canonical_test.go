@@ -111,6 +111,39 @@ func TestRuntimeCanonicalAccounting(t *testing.T) {
 	if pressure["peak_use"].(map[string]int64)["volume"] != 1 || pressure["saturation_ms"].(map[string]int64)["volume"] != 30 {
 		t.Fatal("writable-root capability did not span all owners", pressure)
 	}
+	// A worker that waits in host admission after graph admission holds its
+	// physical claims only from its grant, here after a's terminal (G71).
+	granted := []map[string]any{}
+	for _, e := range events {
+		granted = append(granted, maps.Clone(e))
+		phase := func(name string, at int64, extra map[string]any) {
+			p := maps.Clone(e)
+			maps.Copy(p, map[string]any{"event": name, "unit_id": "b", "status": "running", "monotonic_ms": at, "interval_id": "phase:1", "phase": "host_admission"})
+			maps.Copy(p, extra)
+			granted = append(granted, p)
+		}
+		switch {
+		case e["unit_id"] == "b" && e["event"] == "started":
+			phase("phase_started", 20, nil)
+		case e["unit_id"] == "a" && e["event"] == "completed":
+			phase("phase_finished", 30, map[string]any{"phase_outcome": "completed"})
+		}
+	}
+	for i := range granted {
+		granted[i]["seq"] = i + 1
+	}
+	g := newCanonicalFacts(p)
+	for _, e := range granted {
+		if err := g.consume(e); err != nil {
+			t.Fatal(e, err)
+		}
+	}
+	if err := g.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if pressure := g.pressure(); pressure["peak_use"].(map[string]int64)["cpu"] != 1 || pressure["saturation_ms"].(map[string]int64)["cpu"] != 0 {
+		t.Fatal("physical claims counted before the host grant", pressure)
+	}
 	for _, kind := range []string{"duplicate", "reversal", "missing_wait", "forged_identity", "missing_terminal", "old_schema", "wait_gap", "wait_overlap", "wait_mismatch", "unchanged_reason", "foreign_holder", "over_attribution", "under_attribution", "rank_attribution", "unbounded_omission"} {
 		t.Run(kind, func(t *testing.T) {
 			bytes, _ := json.Marshal(events)

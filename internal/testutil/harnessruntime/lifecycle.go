@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"sync"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
@@ -39,7 +40,14 @@ func (e *graphEngine) workerPhase(u unit, name string, operation func() error) e
 func (e *graphEngine) work(u unit, c cacheResult, granted *hostLease) {
 	admittedAt := e.ports.Now()
 	r := unitResult{Status: "failed", Cache: c}
-	defer func() { e.mailbox <- engineMessage{ID: u.ID, At: e.ports.Now(), Result: &r} }()
+	// A unit the ledger already admitted carries its lease; otherwise it is
+	// the graph's only candidate and waits in host admission below. The
+	// scheduler releases the lease with the terminal event.
+	host := granted
+	var settled error
+	defer func() {
+		e.mailbox <- engineMessage{ID: u.ID, At: e.ports.Now(), Result: &r, Lease: host, Settled: settled}
+	}()
 	activity := func(name, reason string) { _ = e.send(engineMessage{ID: u.ID, Activity: name, WaitReason: reason}) }
 	setFailure := func(err error) {
 		if r.Failure == nil {
@@ -72,9 +80,6 @@ func (e *graphEngine) work(u unit, c cacheResult, granted *hostLease) {
 			defer e.ports.Resume()
 		}
 	}
-	// A unit the ledger already admitted carries its lease; otherwise it is
-	// the graph's only candidate and waits in host admission here.
-	host := granted
 	var err error
 	if host == nil {
 		activity("waiting", "host_admission")
@@ -87,17 +92,23 @@ func (e *graphEngine) work(u unit, c cacheResult, granted *hostLease) {
 			return err
 		})
 	}
-	// Finalizers receive independent deadlines even when the work was cancelled.
-	finishHost := func() {
-		if host == nil {
+	// Finalizers receive independent deadlines even when the work was
+	// cancelled. Settlement runs here, under the lease and before evidence
+	// write, so its failure is the unit's; the scheduler records it with the
+	// ledger release.
+	settle := sync.OnceFunc(func() {
+		if host == nil || host.Settle == nil {
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		cleanup("host_release", "", host.Release(ctx))
-		host = nil
-	}
-	defer finishHost()
+		if settled = host.Settle(ctx); settled != nil {
+			f := cleanupFailureOf(settled)
+			r.Cleanup = append(r.Cleanup, f)
+			setFailure(f)
+		}
+	})
+	defer settle()
 	if err != nil {
 		setFailure(err)
 		return
@@ -174,7 +185,7 @@ func (e *graphEngine) work(u unit, c cacheResult, granted *hostLease) {
 	}
 	activity("finalizing", "")
 	finishFixture()
-	finishHost()
+	settle()
 	r.AdmittedAt = admittedAt
 	if e.ports.Terminal != nil {
 		err = e.workerPhase(u, "evidence_write", func() error { return e.ports.Terminal(u, &r) })

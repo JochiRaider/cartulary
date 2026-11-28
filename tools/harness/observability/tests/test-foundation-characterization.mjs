@@ -121,6 +121,7 @@ const facts = {
   terminals: new Map([["a", { event: "completed", monotonic_ms: 9, seq: 11 }], ["b", { event: "failed", monotonic_ms: 10, seq: 12 }]]),
   waits: new Map([["a", { count: 1, resource_intervals: [], resource_holders: new Set() }], ["b", { count: 1, resource_intervals: [{ start: 3, end: 5 }], resource_holders: new Set(["a"]) }]]),
   admissions: new Map([["a", { time: 2, seq: 4 }], ["b", { time: 5, seq: 9 }]]),
+  grants: new Map(),
   fixtureAcquired: new Map([["a", 4]]), cleanupStarted: 10, finalMonotonicMs: 12,
 };
 
@@ -136,6 +137,13 @@ test("independent overlapping accounting expectations include precedence and res
   const pressure = projectResourcePressure(facts, graph, { cpu: 2, process: 2, io: 1, memory_mb: 1, postgres: 1, object_store: 1, port_lane: 1, browser_stack: 1, service_stack: 1, volume: 1 });
   assert.deepEqual(pressure.peak_use, { cpu: 2 });
   assert.deepEqual(pressure.saturation_ms, { cpu: 4 });
+  // A worker that waits in host admission after graph admission holds its
+  // physical claims only from its grant, here after a's terminal.
+  const granted = projectResourcePressure({ ...facts,
+    terminals: new Map([["a", { event: "completed", monotonic_ms: 9, seq: 11 }], ["b", { event: "failed", monotonic_ms: 10, seq: 13 }]]),
+    grants: new Map([["b", { time: 9, seq: 12 }]]) }, graph, { cpu: 2 });
+  assert.deepEqual(granted.peak_use, { cpu: 1 });
+  assert.deepEqual(granted.saturation_ms, {});
   assert.equal(pressure.wait_events, 2);
   assert.deepEqual(pressure.blocked_units, ["b"]);
   assert.deepEqual(pressure.resource_holders, ["a"]);

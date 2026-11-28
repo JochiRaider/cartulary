@@ -43,6 +43,23 @@ func TestPlanPreparation(t *testing.T) {
 		return Request{Kind: "command", Target: "test-slice", Environment: environment(cli)}
 	}
 
+	t.Run("the capacity override is resolved once and reaches no unit", func(t *testing.T) {
+		override := filepath.Join(t.TempDir(), "override.json")
+		if err := os.WriteFile(override, []byte(`{"schema_id":"cartulary.harness_capacity_override.v2","postgres_lanes":1}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		plan, err := Prepare(root, command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, capacityOverrideInput: override}), now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan.Manifest.CapabilitySnapshot.PostgresLanes != 1 || plan.Manifest.DeclaredInputs[capacityOverrideInput] != override {
+			t.Fatalf("override not resolved into the manifest: %+v", plan.Manifest.CapabilitySnapshot)
+		}
+		if _, forwarded := plan.InputEnvironment.Forward[capacityOverrideInput]; forwarded || !slices.Contains(plan.InputEnvironment.Clear, capacityOverrideInput) {
+			t.Fatalf("a unit would receive the capacity override: %+v", plan.InputEnvironment)
+		}
+	})
+
 	t.Run("an owner slice of test-slice prepares a valid plan", func(t *testing.T) {
 		plan, err := Prepare(root, command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row}), now, 42)
 		if err != nil {

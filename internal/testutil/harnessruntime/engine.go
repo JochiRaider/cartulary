@@ -94,9 +94,18 @@ type fixtureOwner interface {
 	Close(context.Context) error
 	Unresolved() bool
 }
+
+// hostLease is one unit's host admission. Its claims span the unit's whole
+// admitted lifetime: the worker settles the physical state its work holds
+// (a renderer slot, a browser stack) before evidence write, and the
+// scheduler returns the ledger reservation in the same step that records the
+// unit's terminal event, so no admission is sequenced between them.
 type hostLease struct {
-	Token   string
-	Bind    func(int) error
+	Token string
+	Bind  func(int) error
+	// Settle releases the work's physical state; nil when there is none.
+	Settle func(context.Context) error
+	// Release returns the ledger reservation.
 	Release func(context.Context) error
 }
 
@@ -190,8 +199,12 @@ type engineMessage struct {
 	At                              time.Duration
 	Extra                           map[string]any
 	Result                          *unitResult
-	Cleanup                         *cleanupRecord
-	Ack                             chan error
+	// Lease is the result's host lease, which the scheduler releases with
+	// the terminal event; Settled is the worker's settlement outcome.
+	Lease   *hostLease
+	Settled error
+	Cleanup *cleanupRecord
+	Ack     chan error
 }
 type waitDetails struct {
 	reason           string
@@ -1210,6 +1223,7 @@ func (e *graphEngine) receive(m engineMessage) {
 	e.observe()
 }
 func (e *graphEngine) complete(m engineMessage) {
+	e.releaseHost(m)
 	if !e.running[m.ID] {
 		e.requiredError(failed("harness", "scheduler_accounting_error"))
 		return
@@ -1407,6 +1421,31 @@ func optionalObservation(call func()) (ok bool) {
 	return true
 }
 
+// releaseHost returns a finished unit's ledger reservation before its
+// terminal event is recorded and before any later admission, so the canonical
+// lifetime is the physical hold (G71). The worker already recorded a
+// settlement failure in the unit's result; a ledger release failure leaves
+// the ledger unreliable for further admission, so it fails the run.
+func (e *graphEngine) releaseHost(m engineMessage) {
+	if m.Lease == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	var released error
+	if m.Lease.Release != nil {
+		released = m.Lease.Release(ctx)
+	}
+	record := cleanupRecord{Operation: "host_release", UnitID: m.ID, Outcome: "completed", Cause: errors.Join(m.Settled, released)}
+	if record.Cause != nil {
+		record.Outcome = "failed"
+		record.Failure = cleanupFailureOf(record.Cause)
+	}
+	e.recordCleanup(record)
+	if released != nil {
+		e.requiredError(record.Failure)
+	}
+}
 func (e *graphEngine) recordCleanup(r cleanupRecord) {
 	e.result.Cleanup = append(e.result.Cleanup, r)
 	if e.ports.Cleanup != nil {
